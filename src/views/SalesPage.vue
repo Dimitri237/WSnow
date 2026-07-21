@@ -91,7 +91,7 @@
           </div>
         </div>
 
-        <button class="danger" @click.stop="deleteSale(s)">
+        <button v-if="user.role==='Administrateur'" class="danger" @click.stop="deleteSale(s)">
           Supprimer
         </button>
       </div>
