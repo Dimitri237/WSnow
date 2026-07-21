@@ -88,7 +88,10 @@
             <span class="badge">
               {{ formatMoney(s.total) }}
             </span>
-            <span class="badge">
+          </div>
+          <div class="meta">
+            👤Vendeur:
+            <span v-if="currentUser?.role === 'Administrateur'" class="badge2">
               {{ s.seller }}
             </span>
           </div>
@@ -604,6 +607,14 @@ textarea {
 
 .badge {
   background: linear-gradient(135deg, #1d6b2f, #45b05e);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  margin-left: 8px;
+}
+.badge2 {
+  background: linear-gradient(135deg, #1c1d1d, #45b05e);
   color: white;
   padding: 3px 8px;
   border-radius: 10px;
