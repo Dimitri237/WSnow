@@ -89,9 +89,9 @@
               {{ formatMoney(s.total) }}
             </span>
           </div>
-          <div class="meta">
+          <div v-if="currentUser?.role === 'Administrateur'" class="meta">
             👤Vendeur:
-            <span v-if="currentUser?.role === 'Administrateur'" class="badge2">
+            <span  class="badge2">
               {{ s.seller }}
             </span>
           </div>
