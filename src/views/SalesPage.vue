@@ -88,6 +88,9 @@
             <span class="badge">
               {{ formatMoney(s.total) }}
             </span>
+            <span class="badge">
+              {{ s.seller }}
+            </span>
           </div>
         </div>
 

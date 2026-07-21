@@ -23,7 +23,7 @@
             <strong>{{ p.name }}</strong>
             <span class="price">{{ p.price }} FCFA / Casier</span>
           </div>
-          <button class="danger" @click="deleteProduct(p)">❌</button>
+          <button v-if="currentUser?.role === 'Administrateur'" class="danger" @click="deleteProduct(p)">❌</button>
         </div>
 
         <div v-if="p.stocks && Object.keys(p.stocks).length" class="stocks">

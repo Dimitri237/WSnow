@@ -46,7 +46,7 @@
             <strong>Entrée du {{ formatDate(e.date) }}</strong>
             <span class="badge">{{ e.items?.length || 0 }} produits</span>
           </div>
-          <button class="danger" @click.stop="deleteEntry(e)">Supprimer</button>
+          <button v-if="currentUser?.role === 'Administrateur'" class="danger" @click.stop="deleteEntry(e)">Supprimer</button>
         </div>
       </transition-group>
 
