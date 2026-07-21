@@ -1,5 +1,5 @@
 <template>
-  <Navbar  />
+  <Navbar />
   <Sidebar />
   <div class="page">
 
@@ -91,9 +91,10 @@
           </div>
         </div>
 
-        <button v-if="user.role==='Administrateur'" class="danger" @click.stop="deleteSale(s)">
+        <button v-if="currentUser?.role === 'Administrateur'" class="danger" @click.stop="deleteSale(s)">
           Supprimer
         </button>
+
       </div>
 
       <div class="pagination" v-if="sales.length > pageSize">
@@ -174,7 +175,7 @@ export default {
     }
   },
   components: {
-    Sidebar, 
+    Sidebar,
     Navbar
   },
   computed: {
@@ -215,7 +216,10 @@ export default {
     async load() {
       const p = await getDocs(collection(db, "products"))
       this.products = p.docs.map(d => ({ id: d.id, ...d.data() }))
-      this.loadSales()
+
+      await this.loadProducts()
+      await this.loadSales()
+
     },
     formatMoney(amount) {
       return new Intl.NumberFormat("fr-FR").format(amount) + " FCFA"
@@ -224,7 +228,25 @@ export default {
       const snap = await getDocs(collection(db, "sales"))
       this.sales = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => b.date.seconds - a.date.seconds)
+        .sort((a, b) => {
+          const da = a.date?.seconds
+            ? a.date.seconds * 1000
+            : new Date(a.date).getTime()
+
+          const db = b.date?.seconds
+            ? b.date.seconds * 1000
+            : new Date(b.date).getTime()
+
+          return db - da
+        })
+
+    },
+    async loadProducts() {
+      const p = await getDocs(collection(db, "products"))
+      this.products = p.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }))
     },
 
     addToCart() {
@@ -235,6 +257,15 @@ export default {
       if (existing) {
         existing.qty += this.qty
       } else {
+        const stock = p.stocks?.[this.depotId] || 0
+
+        const deja = this.cart.find(i => i.productId === p.id)?.qty || 0
+
+        if (deja + this.qty > stock) {
+          alert("Stock insuffisant.")
+          return
+        }
+
         this.cart.push({
           productId: p.id,
           name: p.name,
@@ -252,55 +283,74 @@ export default {
     },
 
     async saveSale() {
-      if (!this.cart.length) return
+      if (!this.cart.length) return;
+
       this.loading = true;
 
-      // Vérification des stocks
-      for (const i of this.cart) {
-        const p = this.products.find(x => x.id === i.productId)
-        const current = p.stocks?.[this.depotId] || 0
-        if (current < i.qty) {
-          alert(`Stock insuffisant pour ${i.name}`)
-          this.loading = false;
-          return
+      try {
+        // Vérification des stocks
+        for (const i of this.cart) {
+          const p = this.products.find(x => x.id === i.productId);
+          const current = p.stocks?.[this.depotId] || 0;
+
+          if (current < i.qty) {
+            throw new Error(`Stock insuffisant pour ${i.name}`);
+          }
         }
+
+        // Mise à jour des stocks
+        for (const i of this.cart) {
+          const p = this.products.find(x => x.id === i.productId);
+          const current = p.stocks?.[this.depotId] || 0;
+
+          await updateDoc(doc(db, "products", p.id), {
+            [`stocks.${this.depotId}`]: current - i.qty
+          });
+        }
+
+        // Recharger les produits une seule fois
+        await this.load();
+
+        // Création de la vente
+        const sale = {
+          depotId: this.depotId,
+          items: this.cart,
+          clientName: this.clientName || "Client comptant",
+          remark: this.remark || "",
+          total: this.cartTotal,
+          seller:
+            this.currentUser?.name ||
+            this.currentUser?.username ||
+            "Inconnu",
+          date: new Date()
+        };
+
+        const ref = await addDoc(collection(db, "sales"), sale);
+
+        await printInvoiceDirect(
+          { id: ref.id, total: sale.total },
+          sale.items,
+          sale.clientName,
+          { name: "Dépôt principal" }
+        );
+
+        // Réinitialisation
+        this.cart = [];
+        this.clientName = "";
+        this.remark = "";
+
+        await this.loadSales();
+
+        alert("Vente enregistrée avec succès !");
+      } catch (error) {
+        console.error(error);
+        alert(error.message || "Une erreur est survenue lors de l'enregistrement de la vente.");
+      } finally {
+        // S'exécute toujours, qu'il y ait une erreur ou non
+        this.loading = false;
       }
-
-      // Mise à jour des stocks
-      for (const i of this.cart) {
-        const p = this.products.find(x => x.id === i.productId)
-        const current = p.stocks?.[this.depotId] || 0
-        await updateDoc(doc(db, "products", p.id), {
-          [`stocks.${this.depotId}`]: current - i.qty
-        })
-      }
-
-      // Création de la vente
-      const sale = {
-        depotId: this.depotId,
-        items: this.cart,
-        clientName: this.clientName || "Client comptant",
-        remark: this.remark || "",
-        total: this.cartTotal,
-        seller: this.currentUser?.name || this.currentUser?.username || "Inconnu",
-        date: new Date()
-      }
-
-      const ref = await addDoc(collection(db, "sales"), sale)
-
-      await printInvoiceDirect(
-        { id: ref.id, total: sale.total },
-        sale.items,
-        sale.clientName,
-        { name: "Dépôt principal" }
-      )
-
-      this.cart = []
-      this.clientName = ""
-      this.remark = ""
-      this.loadSales()
-      this.loading = false;
     },
+
 
     async deleteSale(sale) {
       if (!confirm("Supprimer cette vente ?")) return
@@ -314,10 +364,11 @@ export default {
       }
 
       await deleteDoc(doc(db, "sales", sale.id))
-      await this.loadSales()
-
+      await this.load()
       if (this.currentPage > this.totalPages) {
-        this.currentPage = this.totalPages || 1
+        // this.currentPage = this.totalPages || 1
+        this.currentPage = 1
+
       }
     },
 
@@ -341,8 +392,12 @@ export default {
     formatDate(date) {
       if (!date) return ""
       const d = date.seconds ? new Date(date.seconds * 1000) : new Date(date)
-      return d.toLocaleDateString("fr-FR", {
-        day: "2-digit", month: "2-digit", year: "numeric"
+      return d.toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
       })
     }
   },
@@ -350,9 +405,6 @@ export default {
   mounted() {
     const user = JSON.parse(localStorage.getItem("user") || "{}")
     this.currentUser = user
-
-    this.load()
-
     this.load()
   }
 }
