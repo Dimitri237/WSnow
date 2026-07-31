@@ -9,12 +9,17 @@ import Sales from '../views/SalesPage.vue'
 import Comptabilite from '../views/ComptaPge.vue'
 import loadingPage from '../views/LoadingPage.vue'
 import Clients from '../views/ClientsPage.vue'
+import BarSales from '../views/BarSales.vue'
+import BarStockBar from '../views/BarStock.vue'
+
 import Register from '../views/RegisterPage.vue'
 import Suppliers from '../views/SuppliersPage.vue'
 
 const routes = [
   { path: '/lod', component: loadingPage },
   { path: '/', component: Login },
+  { path: '/barStock', component: BarStockBar },
+  { path: '/barSale', component: BarSales },
   { path: '/dashboard', component: Dashboard },
   { path: '/register', component: Register},
   { path: '/products', component: Products },

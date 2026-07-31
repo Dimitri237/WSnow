@@ -13,6 +13,8 @@
     <h3><router-link @click="open = false" to="/entries">📥 Entrées</router-link></h3>
     <h3><router-link @click="open = false" to="/sales">📆 Ventes</router-link></h3>
      <h3><router-link @click="open = false" to="/compt">💰 Comptabilité</router-link></h3>
+     <h3><router-link @click="open = false" to="/barStock">🍺Stock Bar</router-link></h3>
+     <h3><router-link @click="open = false" to="/barSale">🍺Vente Bar</router-link></h3>
   </nav>
 </template>
 <script>
