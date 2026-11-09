@@ -207,7 +207,7 @@
                 </div>
 
                 <div class="stock-input-wrapper">
-                  <input v-model.number="editForm.stocks[depot.id]" type="number" min="0" step="1" placeholder="0"
+                  <input v-model.number="editForm.stocks[depot.id]" type="number" min="0" step="any" placeholder="0"
                     :disabled="savingEdit" />
 
                   <span>Casier(s)</span>
@@ -261,7 +261,7 @@
             <div class="stock-heading">
               <span>Disponibilité des stocks</span>
               <strong :class="{ 'has-stock': getTotalProductStock(p) > 0 }">
-                {{ getTotalProductStock(p) }} casier(s)
+                {{ formatQuantity(getTotalProductStock(p)) }} casier(s)
               </strong>
             </div>
 
@@ -269,7 +269,7 @@
               <div v-for="depot in getProductDepots(p)" :key="depot.id" class="depot-item">
                 <div class="depot-indicator"></div>
                 <span class="depot-name">{{ depot.id }}</span>
-                <strong>{{ depot.quantity }}</strong>
+                <strong>{{ formatQuantity(depot.quantity) }}</strong>
               </div>
             </div>
 
@@ -283,7 +283,7 @@
           <div class="product-footer">
             <span class="stock-status" :class="getTotalProductStock(p) > 0 ? 'available' : 'empty'">
               <span class="status-dot"></span>
-              {{ getTotalProductStock(p) > 0 ? 'En stock' : 'Stock épuisé' }}
+              {{ formatQuantity(getTotalProductStock(p)) > 0 ? 'En stock' : 'Stock épuisé' }}
             </span>
 
             <span class="product-id">
@@ -404,7 +404,7 @@ export default {
         return (
           quantity !== "" &&
           quantity !== null &&
-          Number.isInteger(Number(quantity)) &&
+          Number.isFinite(Number(quantity)) &&
           Number(quantity) >= 0
         )
       })
@@ -537,7 +537,7 @@ export default {
           const value = Number(quantity)
 
           return total + (
-            Number.isInteger(value) && value >= 0 ? value : 0
+            Number.isFinite(value) && value >= 0 ? value : 0
           )
         }, 0)
     },
@@ -611,7 +611,7 @@ export default {
         return
       }
 
-      // Validation des quantités
+      // VALIDATION DES STOCKS
       const stocks = {}
 
       for (const [depotId, quantity] of Object.entries(
@@ -622,7 +622,7 @@ export default {
         if (
           quantity === "" ||
           quantity === null ||
-          !Number.isInteger(value) ||
+          !Number.isFinite(value) ||
           value < 0
         ) {
           alert(
@@ -631,9 +631,9 @@ export default {
           return
         }
 
+        // Autoriser les nombres décimaux
         stocks[depotId] = value
       }
-
       this.savingEdit = true
 
       try {
@@ -903,35 +903,42 @@ export default {
     // =====================================
 
     getTotalProductStock(product) {
-      if (!product?.stocks || typeof product.stocks !== "object") {
-        return 0
-      }
+  if (!product?.stocks || typeof product.stocks !== "object") {
+    return 0
+  }
 
-      return Object.values(product.stocks).reduce(
-        (total, quantity) => {
-          const value = Number(quantity)
+  return Object.values(product.stocks).reduce(
+    (total, quantity) => {
+      const value = Number(quantity)
 
-          return total + (
-            Number.isFinite(value) && value > 0 ? value : 0
-          )
-        },
-        0
+      return total + (
+        Number.isFinite(value) && value > 0 ? value : 0
       )
     },
+    0
+  )
+},
+formatQuantity(quantity) {
+  return new Intl.NumberFormat("fr-FR", {
+    maximumFractionDigits: 3
+  }).format(Number(quantity) || 0)
+},
+   getProductDepots(product) {
+  if (!product?.stocks || typeof product.stocks !== "object") {
+    return []
+  }
 
-    getProductDepots(product) {
-      if (!product?.stocks || typeof product.stocks !== "object") {
-        return []
-      }
-
-      return Object.entries(product.stocks)
-        .filter(([, quantity]) => Number(quantity) > 0)
-        .map(([id, quantity]) => ({
-          id,
-          quantity: Number(quantity)
-        }))
-        .sort((a, b) => b.quantity - a.quantity)
-    },
+  return Object.entries(product.stocks)
+    .filter(([, quantity]) => {
+      return Number.isFinite(Number(quantity)) &&
+        Number(quantity) > 0
+    })
+    .map(([id, quantity]) => ({
+      id,
+      quantity: Number(quantity)
+    }))
+    .sort((a, b) => b.quantity - a.quantity)
+},
 
     // =====================================
     // AJOUT PRODUIT
