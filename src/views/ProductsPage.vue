@@ -1,4 +1,3 @@
-
 <template>
   <Navbar />
   <Sidebar />
@@ -64,32 +63,15 @@
       <form class="product-form" @submit.prevent="add">
         <div class="field name-field">
           <label>Nom du produit</label>
-          <input
-            v-model.trim="name"
-            type="text"
-            placeholder="Ex : Bière, Boisson, Jus..."
-            maxlength="120"
-            required
-          />
+          <input v-model.trim="name" type="text" placeholder="Ex : Bière, Boisson, Jus..." maxlength="120" required />
         </div>
 
         <div class="field price-field">
           <label>Prix unitaire (FCFA)</label>
-          <input
-            v-model.number="price"
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Ex : 2500"
-            required
-          />
+          <input v-model.number="price" type="number" min="0" step="1" placeholder="Ex : 2500" required />
         </div>
 
-        <button
-          type="submit"
-          class="btn-add"
-          :disabled="loading || !name.trim() || !validPrice"
-        >
+        <button type="submit" class="btn-add" :disabled="loading || !name.trim() || !validPrice">
           <span v-if="loading" class="spinner"></span>
           <template v-else>
             <span>＋</span> Ajouter le produit
@@ -119,12 +101,8 @@
             {{ filteredProducts.length }} produit(s)
           </span>
 
-          <button
-            type="button"
-            class="btn-export"
-            @click="exportProductsPDF"
-            :disabled="!products.length || exportingPDF"
-          >
+          <button type="button" class="btn-export" @click="exportProductsPDF"
+            :disabled="!products.length || exportingPDF">
             <span v-if="exportingPDF" class="mini-spinner"></span>
             <template v-else>
               <span>↓</span>
@@ -138,17 +116,8 @@
       <div class="toolbar">
         <div class="search-box">
           <span class="search-icon">⌕</span>
-          <input
-            v-model.trim="search"
-            type="search"
-            placeholder="Rechercher un produit..."
-          />
-          <button
-            v-if="search"
-            class="clear-search"
-            @click="search = ''"
-            type="button"
-          >
+          <input v-model.trim="search" type="search" placeholder="Rechercher un produit..." />
+          <button v-if="search" class="clear-search" @click="search = ''" type="button">
             ✕
           </button>
         </div>
@@ -168,17 +137,8 @@
       </div>
 
       <!-- PRODUITS -->
-      <transition-group
-        v-else-if="filteredProducts.length"
-        name="list"
-        tag="div"
-        class="products-grid"
-      >
-        <article
-          v-for="p in filteredProducts"
-          :key="p.id"
-          class="product-card"
-        >
+      <transition-group v-else-if="filteredProducts.length" name="list" tag="div" class="products-grid">
+        <article v-for="p in filteredProducts" :key="p.id" class="product-card">
           <!-- CARD HEADER -->
           <div class="product-top">
             <div class="product-avatar">
@@ -190,82 +150,102 @@
               <span class="product-reference">Produit enregistré</span>
             </div>
 
-            <button
-              v-if="canEditProducts"
-              type="button"
-              class="edit-button"
-              title="Modifier le produit"
-              @click="openEdit(p)"
-            >
+            <button v-if="canEditProducts" type="button" class="edit-button" title="Modifier le produit"
+              @click="openEdit(p)">
               ✎
             </button>
 
-            <button
-              v-if="currentUser?.role === 'Administrateur'"
-              type="button"
-              class="delete-button"
-              title="Supprimer le produit"
-              @click="deleteProduct(p)"
-              :disabled="deletingId === p.id"
-            >
+            <button v-if="currentUser?.role === 'Administrateur'" type="button" class="delete-button"
+              title="Supprimer le produit" @click="deleteProduct(p)" :disabled="deletingId === p.id">
               <span v-if="deletingId === p.id" class="mini-spinner"></span>
               <span v-else>✕</span>
             </button>
           </div>
 
           <!-- MODIFICATION DU PRODUIT -->
-          <div
-            v-if="canEditProducts && editingId === p.id"
-            class="edit-product-form"
-          >
+          <div v-if="canEditProducts && editingId === p.id" class="edit-product-form">
             <div class="edit-form-heading">
               <div>
                 <strong>Modifier le produit</strong>
-                <p>Modifiez les informations du catalogue.</p>
+                <p>Modifiez les informations et les quantités en stock.</p>
               </div>
               <span class="edit-icon">✎</span>
             </div>
 
+            <!-- NOM -->
             <div class="field">
               <label>Nom du produit</label>
-              <input
-                v-model.trim="editForm.name"
-                type="text"
-                maxlength="120"
-                placeholder="Nom du produit"
-              />
+              <input v-model.trim="editForm.name" type="text" maxlength="120" placeholder="Nom du produit" />
             </div>
 
+            <!-- PRIX -->
             <div class="field">
               <label>Prix unitaire (FCFA)</label>
-              <input
-                v-model.number="editForm.price"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="Prix du produit"
-              />
+              <input v-model.number="editForm.price" type="number" min="0" step="1" placeholder="Prix du produit" />
             </div>
 
+            <!-- MODIFICATION DES STOCKS -->
+            <div class="edit-stock-container">
+
+              <div class="edit-stock-heading">
+                <div>
+                  <strong>Gestion des quantités</strong>
+                  <p>Modifiez le stock disponible dans chaque dépôt.</p>
+                </div>
+
+                <span class="stock-edit-icon">▤</span>
+              </div>
+
+              <div v-for="depot in getEditableDepots(p)" :key="depot.id" class="edit-stock-item">
+                <div class="edit-stock-info">
+                  <span class="depot-indicator"></span>
+
+                  <div>
+                    <strong>{{ depot.name }}</strong>
+                    <small>Quantité disponible</small>
+                  </div>
+                </div>
+
+                <div class="stock-input-wrapper">
+                  <input v-model.number="editForm.stocks[depot.id]" type="number" min="0" step="1" placeholder="0"
+                    :disabled="savingEdit" />
+
+                  <span>Casier(s)</span>
+                </div>
+              </div>
+
+              <div v-if="!getEditableDepots(p).length" class="no-stock">
+                Aucun dépôt disponible.
+              </div>
+
+              <!-- TOTAL -->
+              <div class="edit-stock-total">
+                <span>Stock total après modification</span>
+
+                <strong>
+                  {{ getEditStockTotal().toLocaleString("fr-FR") }}
+                  casier(s)
+                </strong>
+              </div>
+
+            </div>
+
+            <!-- ACTIONS -->
             <div class="edit-actions">
-              <button
-                type="button"
-                class="btn-cancel-edit"
-                @click="cancelEdit"
-                :disabled="savingEdit"
-              >
+
+              <button type="button" class="btn-cancel-edit" @click="cancelEdit" :disabled="savingEdit">
                 Annuler
               </button>
 
-              <button
-                type="button"
-                class="btn-save-edit"
-                @click="saveEdit(p)"
-                :disabled="savingEdit || !editForm.name.trim() || !validEditPrice"
-              >
+              <button type="button" class="btn-save-edit" @click="saveEdit(p)" :disabled="savingEdit ||
+                !editForm.name.trim() ||
+                !validEditPrice ||
+                !validEditStocks
+                ">
                 <span v-if="savingEdit" class="mini-spinner"></span>
                 <template v-else>✓ Enregistrer</template>
               </button>
+
             </div>
           </div>
 
@@ -286,11 +266,7 @@
             </div>
 
             <div v-if="getProductDepots(p).length" class="depot-list">
-              <div
-                v-for="depot in getProductDepots(p)"
-                :key="depot.id"
-                class="depot-item"
-              >
+              <div v-for="depot in getProductDepots(p)" :key="depot.id" class="depot-item">
                 <div class="depot-indicator"></div>
                 <span class="depot-name">{{ depot.id }}</span>
                 <strong>{{ depot.quantity }}</strong>
@@ -305,10 +281,7 @@
 
           <!-- FOOTER -->
           <div class="product-footer">
-            <span
-              class="stock-status"
-              :class="getTotalProductStock(p) > 0 ? 'available' : 'empty'"
-            >
+            <span class="stock-status" :class="getTotalProductStock(p) > 0 ? 'available' : 'empty'">
               <span class="status-dot"></span>
               {{ getTotalProductStock(p) > 0 ? 'En stock' : 'Stock épuisé' }}
             </span>
@@ -339,11 +312,7 @@
           }}
         </p>
 
-        <button
-          v-if="search"
-          class="reset-search"
-          @click="search = ''"
-        >
+        <button v-if="search" class="reset-search" @click="search = ''">
           Réinitialiser la recherche
         </button>
       </div>
@@ -383,6 +352,8 @@ export default {
   data() {
     return {
       products: [],
+      depots: [],
+
       name: "",
       price: null,
 
@@ -396,9 +367,11 @@ export default {
       sortBy: "name",
 
       editingId: null,
+
       editForm: {
         name: "",
-        price: null
+        price: null,
+        stocks: {}
       },
 
       savingEdit: false,
@@ -424,6 +397,19 @@ export default {
       )
     },
 
+    validEditStocks() {
+      const stocks = this.editForm.stocks || {}
+
+      return Object.values(stocks).every(quantity => {
+        return (
+          quantity !== "" &&
+          quantity !== null &&
+          Number.isInteger(Number(quantity)) &&
+          Number(quantity) >= 0
+        )
+      })
+    },
+
     validPrice() {
       return (
         this.price !== null &&
@@ -435,7 +421,8 @@ export default {
 
     totalStock() {
       return this.products.reduce(
-        (total, product) => total + this.getTotalProductStock(product),
+        (total, product) =>
+          total + this.getTotalProductStock(product),
         0
       )
     },
@@ -480,7 +467,8 @@ export default {
         case "stockDesc":
           result.sort(
             (a, b) =>
-              this.getTotalProductStock(b) - this.getTotalProductStock(a)
+              this.getTotalProductStock(b) -
+              this.getTotalProductStock(a)
           )
           break
 
@@ -498,8 +486,64 @@ export default {
   },
 
   methods: {
+
     // =====================================
-    // MODIFICATION DES PRODUITS
+    // GESTION DES DEPOTS
+    // =====================================
+
+    async loadDepots() {
+      try {
+        const snap = await getDocs(collection(db, "depots"))
+
+        this.depots = snap.docs.map(d => ({
+          ...d.data(),
+          id: d.id
+        }))
+      } catch (error) {
+        console.error("Erreur chargement dépôts :", error)
+        this.depots = []
+      }
+    },
+
+    getEditableDepots(product) {
+      const depotMap = new Map()
+
+      // Dépôts enregistrés dans Firestore
+      this.depots.forEach(depot => {
+        depotMap.set(depot.id, {
+          id: depot.id,
+          name: depot.name || depot.nom || depot.label || depot.id
+        })
+      })
+
+      // Conserver également les dépôts déjà présents
+      // dans le stock du produit, même s'ils ne figurent
+      // plus dans la collection des dépôts.
+      Object.keys(product?.stocks || {}).forEach(id => {
+        if (!depotMap.has(id)) {
+          depotMap.set(id, {
+            id,
+            name: id
+          })
+        }
+      })
+
+      return Array.from(depotMap.values())
+    },
+
+    getEditStockTotal() {
+      return Object.values(this.editForm.stocks || {})
+        .reduce((total, quantity) => {
+          const value = Number(quantity)
+
+          return total + (
+            Number.isInteger(value) && value >= 0 ? value : 0
+          )
+        }, 0)
+    },
+
+    // =====================================
+    // MODIFICATION DES PRODUITS ET STOCKS
     // =====================================
 
     openEdit(product) {
@@ -515,9 +559,17 @@ export default {
 
       this.editingId = product.id
 
+      // Initialiser les quantités de tous les dépôts
+      const stocks = {}
+
+      this.getEditableDepots(product).forEach(depot => {
+        stocks[depot.id] = Number(product.stocks?.[depot.id]) || 0
+      })
+
       this.editForm = {
         name: product.name || "",
-        price: Number(product.price) || 0
+        price: Number(product.price) || 0,
+        stocks
       }
     },
 
@@ -528,7 +580,8 @@ export default {
 
       this.editForm = {
         name: "",
-        price: null
+        price: null,
+        stocks: {}
       }
     },
 
@@ -558,14 +611,40 @@ export default {
         return
       }
 
+      // Validation des quantités
+      const stocks = {}
+
+      for (const [depotId, quantity] of Object.entries(
+        this.editForm.stocks || {}
+      )) {
+        const value = Number(quantity)
+
+        if (
+          quantity === "" ||
+          quantity === null ||
+          !Number.isInteger(value) ||
+          value < 0
+        ) {
+          alert(
+            `Quantité invalide pour le dépôt ${depotId}.`
+          )
+          return
+        }
+
+        stocks[depotId] = value
+      }
+
       this.savingEdit = true
 
       try {
+        // Mise à jour Firestore
         await updateDoc(doc(db, "products", product.id), {
           name,
-          price
+          price,
+          stocks
         })
 
+        // Mise à jour immédiate de l'interface
         const index = this.products.findIndex(
           p => p.id === product.id
         )
@@ -574,23 +653,30 @@ export default {
           this.products[index] = {
             ...this.products[index],
             name,
-            price
+            price,
+            stocks
           }
         }
 
         this.cancelEdit()
-        this.savingEdit = false
-        alert("Produit modifié avec succès !")
+
+        alert(
+          "Produit et quantités en stock modifiés avec succès !"
+        )
+
       } catch (error) {
         console.error("Erreur modification produit :", error)
-        alert("Impossible de modifier le produit.")
+
+        alert(
+          "Impossible de modifier le produit et ses stocks."
+        )
       } finally {
         this.savingEdit = false
       }
     },
 
     // =====================================
-    // EXPORTATION PDF DU CATALOGUE
+    // EXPORTATION PDF
     // =====================================
 
     async exportProductsPDF() {
@@ -612,7 +698,6 @@ export default {
 
         const pageWidth = pdf.internal.pageSize.getWidth()
 
-        // EN-TÊTE
         pdf.setFillColor(23, 43, 77)
         pdf.rect(0, 0, pageWidth, 37, "F")
 
@@ -642,7 +727,6 @@ export default {
           { align: "right" }
         )
 
-        // STATISTIQUES
         pdf.setTextColor(45, 55, 72)
         pdf.setFontSize(10)
         pdf.setFont("helvetica", "bold")
@@ -665,7 +749,6 @@ export default {
           47
         )
 
-        // TABLEAU
         const rows = this.products.map((product, index) => {
           const depots = this.getProductDepots(product)
 
@@ -760,6 +843,7 @@ export default {
         pdf.save(
           `catalogue_produits_${new Date().toISOString().slice(0, 10)}.pdf`
         )
+
       } catch (error) {
         console.error("Erreur exportation PDF :", error)
         alert("Impossible de générer le fichier PDF.")
@@ -782,6 +866,9 @@ export default {
           ...d.data(),
           id: d.id
         }))
+
+        await this.loadDepots()
+
       } catch (error) {
         console.error("Erreur chargement produits :", error)
         alert("Impossible de charger les produits.")
@@ -789,6 +876,10 @@ export default {
         this.pageLoading = false
       }
     },
+
+    // =====================================
+    // FORMATAGE
+    // =====================================
 
     formatMoney(amount) {
       return new Intl.NumberFormat("fr-FR", {
@@ -806,6 +897,10 @@ export default {
         .map(word => word.charAt(0).toUpperCase())
         .join("")
     },
+
+    // =====================================
+    // CALCUL DES STOCKS
+    // =====================================
 
     getTotalProductStock(product) {
       if (!product?.stocks || typeof product.stocks !== "object") {
@@ -878,6 +973,7 @@ export default {
         await this.load()
 
         alert("Produit ajouté avec succès !")
+
       } catch (error) {
         console.error("Erreur ajout produit :", error)
         alert("Impossible d'enregistrer le produit.")
@@ -924,6 +1020,7 @@ export default {
         )
 
         alert("Produit supprimé avec succès.")
+
       } catch (error) {
         console.error("Erreur suppression :", error)
         alert("Impossible de supprimer ce produit.")
@@ -946,6 +1043,7 @@ export default {
   }
 }
 </script>
+
 
 <style scoped>
 /* =====================================
@@ -1181,6 +1279,173 @@ button {
   margin-bottom: 22px;
 }
 
+/* =====================================
+   MODIFICATION DES STOCKS
+===================================== */
+
+.edit-stock-container {
+  margin-top: 18px;
+  padding: 17px;
+  background: #f7f9fc;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+}
+
+.edit-stock-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.edit-stock-heading strong {
+  display: block;
+  color: #172b4d;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.edit-stock-heading p {
+  margin: 5px 0 0;
+  color: #8490a3;
+  font-size: 11px;
+}
+
+.stock-edit-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #2563eb;
+  background: #eaf1ff;
+  border-radius: 10px;
+  font-size: 17px;
+}
+
+.edit-stock-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  margin-bottom: 9px;
+  background: #fff;
+  border: 1px solid #e8edf4;
+  border-radius: 10px;
+}
+
+.edit-stock-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.edit-stock-info .depot-indicator {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  background: #16a36a;
+  border-radius: 50%;
+}
+
+.edit-stock-info strong {
+  display: block;
+  color: #263750;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.edit-stock-info small {
+  display: block;
+  margin-top: 4px;
+  color: #929daf;
+  font-size: 10px;
+}
+
+.stock-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.stock-input-wrapper input {
+  width: 85px;
+  height: 38px;
+  padding: 0 9px;
+  color: #172b4d;
+  background: #f8fafc;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  outline: none;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  transition: .2s ease;
+}
+
+.stock-input-wrapper input:focus {
+  background: #fff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .09);
+}
+
+.stock-input-wrapper span {
+  color: #8490a3;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.edit-stock-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px;
+  background: #eaf1ff;
+  border-radius: 9px;
+}
+
+.edit-stock-total span {
+  color: #526783;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.edit-stock-total strong {
+  color: #1d4ed8;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .edit-stock-container {
+    padding: 11px;
+  }
+
+  .edit-stock-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stock-input-wrapper {
+    width: 100%;
+  }
+
+  .stock-input-wrapper input {
+    flex: 1;
+    width: 100%;
+  }
+
+  .edit-stock-total {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .add-panel .panel-heading {
   margin-bottom: 23px;
 }
@@ -1328,7 +1593,7 @@ button {
   cursor: not-allowed;
 }
 
-.btn-export > span {
+.btn-export>span {
   font-size: 17px;
 }
 
