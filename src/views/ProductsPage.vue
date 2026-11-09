@@ -4,7 +4,6 @@
   <Sidebar />
 
   <main class="page">
-
     <!-- HEADER -->
     <header class="page-header">
       <div class="header-content">
@@ -24,7 +23,6 @@
 
     <!-- STATISTIQUES -->
     <section class="stats-grid">
-
       <div class="stat-card">
         <div class="stat-top">
           <span class="stat-label">Total des produits</span>
@@ -51,12 +49,10 @@
         <div class="stat-value">{{ formatMoney(averagePrice) }}</div>
         <div class="stat-footer">Prix moyen par produit</div>
       </div>
-
     </section>
 
     <!-- AJOUT PRODUIT -->
     <section class="panel add-panel">
-
       <div class="panel-heading">
         <div class="heading-icon">＋</div>
         <div>
@@ -66,7 +62,6 @@
       </div>
 
       <form class="product-form" @submit.prevent="add">
-
         <div class="field name-field">
           <label>Nom du produit</label>
           <input
@@ -100,21 +95,17 @@
             <span>＋</span> Ajouter le produit
           </template>
         </button>
-
       </form>
 
       <div class="form-note">
         <span>ⓘ</span>
         Les stocks seront initialisés à zéro et pourront être alimentés depuis la page des entrées de stock.
       </div>
-
     </section>
 
     <!-- LISTE DES PRODUITS -->
     <section class="panel products-panel">
-
       <div class="products-heading">
-
         <div class="panel-heading">
           <div class="heading-icon list-icon">▤</div>
           <div>
@@ -123,15 +114,28 @@
           </div>
         </div>
 
-        <span class="count-badge">
-          {{ filteredProducts.length }} produit(s)
-        </span>
+        <div class="heading-actions">
+          <span class="count-badge">
+            {{ filteredProducts.length }} produit(s)
+          </span>
 
+          <button
+            type="button"
+            class="btn-export"
+            @click="exportProductsPDF"
+            :disabled="!products.length || exportingPDF"
+          >
+            <span v-if="exportingPDF" class="mini-spinner"></span>
+            <template v-else>
+              <span>↓</span>
+              Télécharger la fiche PDF
+            </template>
+          </button>
+        </div>
       </div>
 
       <!-- RECHERCHE ET FILTRES -->
       <div class="toolbar">
-
         <div class="search-box">
           <span class="search-icon">⌕</span>
           <input
@@ -155,7 +159,6 @@
           <option value="priceDesc">Prix décroissant</option>
           <option value="stockDesc">Stock disponible</option>
         </select>
-
       </div>
 
       <!-- CHARGEMENT -->
@@ -171,29 +174,35 @@
         tag="div"
         class="products-grid"
       >
-
         <article
           v-for="p in filteredProducts"
           :key="p.id"
           class="product-card"
         >
-
           <!-- CARD HEADER -->
           <div class="product-top">
-
             <div class="product-avatar">
               {{ getInitials(p.name) }}
             </div>
 
             <div class="product-title">
               <h3>{{ p.name }}</h3>
-              <span class="product-reference">
-                Produit enregistré
-              </span>
+              <span class="product-reference">Produit enregistré</span>
             </div>
 
             <button
+              v-if="canEditProducts"
+              type="button"
+              class="edit-button"
+              title="Modifier le produit"
+              @click="openEdit(p)"
+            >
+              ✎
+            </button>
+
+            <button
               v-if="currentUser?.role === 'Administrateur'"
+              type="button"
               class="delete-button"
               title="Supprimer le produit"
               @click="deleteProduct(p)"
@@ -202,7 +211,62 @@
               <span v-if="deletingId === p.id" class="mini-spinner"></span>
               <span v-else>✕</span>
             </button>
+          </div>
 
+          <!-- MODIFICATION DU PRODUIT -->
+          <div
+            v-if="canEditProducts && editingId === p.id"
+            class="edit-product-form"
+          >
+            <div class="edit-form-heading">
+              <div>
+                <strong>Modifier le produit</strong>
+                <p>Modifiez les informations du catalogue.</p>
+              </div>
+              <span class="edit-icon">✎</span>
+            </div>
+
+            <div class="field">
+              <label>Nom du produit</label>
+              <input
+                v-model.trim="editForm.name"
+                type="text"
+                maxlength="120"
+                placeholder="Nom du produit"
+              />
+            </div>
+
+            <div class="field">
+              <label>Prix unitaire (FCFA)</label>
+              <input
+                v-model.number="editForm.price"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Prix du produit"
+              />
+            </div>
+
+            <div class="edit-actions">
+              <button
+                type="button"
+                class="btn-cancel-edit"
+                @click="cancelEdit"
+                :disabled="savingEdit"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                class="btn-save-edit"
+                @click="saveEdit(p)"
+                :disabled="savingEdit || !editForm.name.trim() || !validEditPrice"
+              >
+                <span v-if="savingEdit" class="mini-spinner"></span>
+                <template v-else>✓ Enregistrer</template>
+              </button>
+            </div>
           </div>
 
           <!-- PRICE -->
@@ -214,7 +278,6 @@
 
           <!-- STOCKS -->
           <div class="stock-section">
-
             <div class="stock-heading">
               <span>Disponibilité des stocks</span>
               <strong :class="{ 'has-stock': getTotalProductStock(p) > 0 }">
@@ -222,32 +285,22 @@
               </strong>
             </div>
 
-            <div
-              v-if="getProductDepots(p).length"
-              class="depot-list"
-            >
-
+            <div v-if="getProductDepots(p).length" class="depot-list">
               <div
                 v-for="depot in getProductDepots(p)"
                 :key="depot.id"
                 class="depot-item"
               >
                 <div class="depot-indicator"></div>
-
-                <span class="depot-name">
-                  {{ depot.id }}
-                </span>
-
+                <span class="depot-name">{{ depot.id }}</span>
                 <strong>{{ depot.quantity }}</strong>
               </div>
-
             </div>
 
             <div v-else class="no-stock">
               <span>○</span>
               Aucun stock disponible
             </div>
-
           </div>
 
           <!-- FOOTER -->
@@ -261,17 +314,14 @@
             </span>
 
             <span class="product-id">
-              ID : {{ p.id.slice(0, 7) }}
+              ID : {{ p.id ? p.id.slice(0, 7) : 'Non disponible' }}
             </span>
           </div>
-
         </article>
-
       </transition-group>
 
       <!-- EMPTY STATE -->
       <div v-else class="empty-state">
-
         <div class="empty-icon">
           <span v-if="search">⌕</span>
           <span v-else>▤</span>
@@ -296,19 +346,14 @@
         >
           Réinitialiser la recherche
         </button>
-
       </div>
 
       <!-- FOOTER LISTE -->
       <div v-if="filteredProducts.length" class="list-footer">
-        <span>
-          Affichage de {{ filteredProducts.length }} produit(s)
-        </span>
+        <span>Affichage de {{ filteredProducts.length }} produit(s)</span>
         <span>Catalogue mis à jour</span>
       </div>
-
     </section>
-
   </main>
 </template>
 
@@ -322,8 +367,12 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
-  doc
+  doc,
+  updateDoc
 } from "firebase/firestore"
+
+import { jsPDF } from "jspdf"
+import autoTable from "jspdf-autotable"
 
 export default {
   components: {
@@ -334,7 +383,6 @@ export default {
   data() {
     return {
       products: [],
-
       name: "",
       price: null,
 
@@ -345,11 +393,36 @@ export default {
       currentUser: null,
 
       search: "",
-      sortBy: "name"
+      sortBy: "name",
+
+      editingId: null,
+      editForm: {
+        name: "",
+        price: null
+      },
+
+      savingEdit: false,
+      exportingPDF: false
     }
   },
 
   computed: {
+    canEditProducts() {
+      return (
+        String(this.currentUser?.email || "")
+          .trim()
+          .toLowerCase() === "ditsaffo@gmail.com"
+      )
+    },
+
+    validEditPrice() {
+      return (
+        this.editForm.price !== null &&
+        this.editForm.price !== "" &&
+        Number.isFinite(Number(this.editForm.price)) &&
+        Number(this.editForm.price) >= 0
+      )
+    },
 
     validPrice() {
       return (
@@ -381,7 +454,6 @@ export default {
     filteredProducts() {
       let result = [...this.products]
 
-      // RECHERCHE
       if (this.search) {
         const query = this.search.toLocaleLowerCase("fr")
 
@@ -392,9 +464,7 @@ export default {
         )
       }
 
-      // TRI
       switch (this.sortBy) {
-
         case "priceAsc":
           result.sort(
             (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0)
@@ -409,7 +479,8 @@ export default {
 
         case "stockDesc":
           result.sort(
-            (a, b) => this.getTotalProductStock(b) - this.getTotalProductStock(a)
+            (a, b) =>
+              this.getTotalProductStock(b) - this.getTotalProductStock(a)
           )
           break
 
@@ -424,10 +495,282 @@ export default {
 
       return result
     }
-
   },
 
   methods: {
+    // =====================================
+    // MODIFICATION DES PRODUITS
+    // =====================================
+
+    openEdit(product) {
+      if (!this.canEditProducts) {
+        alert("Vous n'êtes pas autorisé à modifier les produits.")
+        return
+      }
+
+      if (!product?.id) {
+        alert("Identifiant du produit introuvable.")
+        return
+      }
+
+      this.editingId = product.id
+
+      this.editForm = {
+        name: product.name || "",
+        price: Number(product.price) || 0
+      }
+    },
+
+    cancelEdit() {
+      if (this.savingEdit) return
+
+      this.editingId = null
+
+      this.editForm = {
+        name: "",
+        price: null
+      }
+    },
+
+    async saveEdit(product) {
+      if (!this.canEditProducts) {
+        alert("Accès refusé : modification non autorisée.")
+        return
+      }
+
+      if (!product?.id || this.savingEdit) return
+
+      const name = String(this.editForm.name || "").trim()
+      const price = Number(this.editForm.price)
+
+      if (!name) {
+        alert("Veuillez saisir le nom du produit.")
+        return
+      }
+
+      if (
+        this.editForm.price === null ||
+        this.editForm.price === "" ||
+        !Number.isFinite(price) ||
+        price < 0
+      ) {
+        alert("Veuillez saisir un prix valide.")
+        return
+      }
+
+      this.savingEdit = true
+
+      try {
+        await updateDoc(doc(db, "products", product.id), {
+          name,
+          price
+        })
+
+        const index = this.products.findIndex(
+          p => p.id === product.id
+        )
+
+        if (index !== -1) {
+          this.products[index] = {
+            ...this.products[index],
+            name,
+            price
+          }
+        }
+
+        this.cancelEdit()
+        this.savingEdit = false
+        alert("Produit modifié avec succès !")
+      } catch (error) {
+        console.error("Erreur modification produit :", error)
+        alert("Impossible de modifier le produit.")
+      } finally {
+        this.savingEdit = false
+      }
+    },
+
+    // =====================================
+    // EXPORTATION PDF DU CATALOGUE
+    // =====================================
+
+    async exportProductsPDF() {
+      if (this.exportingPDF) return
+
+      if (!this.products.length) {
+        alert("Aucun produit à exporter.")
+        return
+      }
+
+      this.exportingPDF = true
+
+      try {
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: "a4"
+        })
+
+        const pageWidth = pdf.internal.pageSize.getWidth()
+
+        // EN-TÊTE
+        pdf.setFillColor(23, 43, 77)
+        pdf.rect(0, 0, pageWidth, 37, "F")
+
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFont("helvetica", "bold")
+        pdf.setFontSize(19)
+        pdf.text("CATALOGUE DES PRODUITS", 15, 17)
+
+        pdf.setFont("helvetica", "normal")
+        pdf.setFontSize(9)
+        pdf.text(
+          "GESTION COMMERCIALE | FICHE PRODUITS",
+          15,
+          25
+        )
+
+        const date = new Date().toLocaleString("fr-FR", {
+          dateStyle: "long",
+          timeStyle: "short"
+        })
+
+        pdf.setFontSize(9)
+        pdf.text(
+          `Généré le : ${date}`,
+          pageWidth - 15,
+          25,
+          { align: "right" }
+        )
+
+        // STATISTIQUES
+        pdf.setTextColor(45, 55, 72)
+        pdf.setFontSize(10)
+        pdf.setFont("helvetica", "bold")
+
+        pdf.text(
+          `Nombre de produits : ${this.products.length}`,
+          15,
+          47
+        )
+
+        pdf.text(
+          `Stock total : ${this.totalStock.toLocaleString("fr-FR")} casier(s)`,
+          95,
+          47
+        )
+
+        pdf.text(
+          `Prix moyen : ${this.formatMoney(this.averagePrice)}`,
+          200,
+          47
+        )
+
+        // TABLEAU
+        const rows = this.products.map((product, index) => {
+          const depots = this.getProductDepots(product)
+
+          const depotDetails = depots.length
+            ? depots.map(d => `${d.id} : ${d.quantity}`).join("\n")
+            : "Aucun stock"
+
+          return [
+            index + 1,
+            product.name || "Sans nom",
+            this.formatMoney(product.price),
+            this.getTotalProductStock(product).toLocaleString("fr-FR"),
+            depotDetails,
+            product.id || "Non disponible"
+          ]
+        })
+
+        autoTable(pdf, {
+          startY: 55,
+
+          head: [[
+            "N°",
+            "Nom du produit",
+            "Prix unitaire",
+            "Stock total",
+            "Répartition par dépôt",
+            "Identifiant"
+          ]],
+
+          body: rows,
+          theme: "grid",
+
+          styles: {
+            font: "helvetica",
+            fontSize: 8,
+            cellPadding: 3,
+            textColor: [45, 55, 72],
+            lineColor: [225, 231, 240],
+            lineWidth: 0.2,
+            valign: "middle",
+            overflow: "linebreak"
+          },
+
+          headStyles: {
+            fillColor: [37, 99, 235],
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            halign: "center"
+          },
+
+          alternateRowStyles: {
+            fillColor: [246, 248, 252]
+          },
+
+          columnStyles: {
+            0: { cellWidth: 10, halign: "center" },
+            1: { cellWidth: 43 },
+            2: { cellWidth: 30, halign: "right" },
+            3: { cellWidth: 22, halign: "center" },
+            4: { cellWidth: 75 },
+            5: { cellWidth: 102 }
+          },
+
+          margin: {
+            top: 55,
+            right: 15,
+            bottom: 20,
+            left: 15
+          },
+
+          didDrawPage: () => {
+            const pageHeight = pdf.internal.pageSize.getHeight()
+
+            pdf.setFontSize(8)
+            pdf.setTextColor(130, 140, 155)
+
+            pdf.text(
+              "Document de gestion commerciale - Catalogue des produits",
+              15,
+              pageHeight - 9
+            )
+
+            pdf.text(
+              `Page ${pdf.internal.getNumberOfPages()}`,
+              pageWidth - 15,
+              pageHeight - 9,
+              { align: "right" }
+            )
+          }
+        })
+
+        pdf.save(
+          `catalogue_produits_${new Date().toISOString().slice(0, 10)}.pdf`
+        )
+      } catch (error) {
+        console.error("Erreur exportation PDF :", error)
+        alert("Impossible de générer le fichier PDF.")
+      } finally {
+        this.exportingPDF = false
+      }
+    },
+
+    // =====================================
+    // CHARGEMENT DES PRODUITS
+    // =====================================
 
     async load() {
       this.pageLoading = true
@@ -436,10 +779,9 @@ export default {
         const snap = await getDocs(collection(db, "products"))
 
         this.products = snap.docs.map(d => ({
-          id: d.id,
-          ...d.data()
+          ...d.data(),
+          id: d.id
         }))
-
       } catch (error) {
         console.error("Erreur chargement produits :", error)
         alert("Impossible de charger les produits.")
@@ -466,7 +808,7 @@ export default {
     },
 
     getTotalProductStock(product) {
-      if (!product.stocks || typeof product.stocks !== "object") {
+      if (!product?.stocks || typeof product.stocks !== "object") {
         return 0
       }
 
@@ -475,9 +817,7 @@ export default {
           const value = Number(quantity)
 
           return total + (
-            Number.isFinite(value) && value > 0
-              ? value
-              : 0
+            Number.isFinite(value) && value > 0 ? value : 0
           )
         },
         0
@@ -485,7 +825,7 @@ export default {
     },
 
     getProductDepots(product) {
-      if (!product.stocks || typeof product.stocks !== "object") {
+      if (!product?.stocks || typeof product.stocks !== "object") {
         return []
       }
 
@@ -497,6 +837,10 @@ export default {
         }))
         .sort((a, b) => b.quantity - a.quantity)
     },
+
+    // =====================================
+    // AJOUT PRODUIT
+    // =====================================
 
     async add() {
       if (this.loading) return
@@ -534,7 +878,6 @@ export default {
         await this.load()
 
         alert("Produit ajouté avec succès !")
-
       } catch (error) {
         console.error("Erreur ajout produit :", error)
         alert("Impossible d'enregistrer le produit.")
@@ -543,15 +886,18 @@ export default {
       }
     },
 
+    // =====================================
+    // SUPPRESSION PRODUIT
+    // =====================================
+
     async deleteProduct(product) {
       if (this.currentUser?.role !== "Administrateur") {
         alert("Vous n'avez pas l'autorisation de supprimer ce produit.")
         return
       }
 
-      if (this.deletingId) return
+      if (!product?.id || this.deletingId) return
 
-      // Protection contre la suppression d'un produit ayant du stock.
       const stock = this.getTotalProductStock(product)
 
       if (stock > 0) {
@@ -578,7 +924,6 @@ export default {
         )
 
         alert("Produit supprimé avec succès.")
-
       } catch (error) {
         console.error("Erreur suppression :", error)
         alert("Impossible de supprimer ce produit.")
@@ -586,7 +931,6 @@ export default {
         this.deletingId = null
       }
     }
-
   },
 
   mounted() {
@@ -940,6 +1284,14 @@ button {
   margin-bottom: 22px;
 }
 
+.heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .count-badge {
   background: #edf3ff;
   color: #3475ed;
@@ -948,6 +1300,36 @@ button {
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.btn-export {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #159b68, #08784d);
+  color: white;
+  font-size: 11px;
+  font-weight: 750;
+  box-shadow: 0 5px 13px rgba(21, 155, 104, .16);
+  transition: .25s ease;
+}
+
+.btn-export:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(21, 155, 104, .25);
+}
+
+.btn-export:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.btn-export > span {
+  font-size: 17px;
 }
 
 /* TOOLBAR */
@@ -1036,6 +1418,7 @@ button {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1088,6 +1471,26 @@ button {
   margin-top: 5px;
 }
 
+.edit-button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dce8ff;
+  border-radius: 9px;
+  background: #edf3ff;
+  color: #2563eb;
+  font-size: 18px;
+  transition: .2s ease;
+}
+
+.edit-button:hover {
+  background: #2563eb;
+  color: white;
+  transform: translateY(-2px);
+}
+
 .delete-button {
   flex-shrink: 0;
   width: 30px;
@@ -1107,6 +1510,97 @@ button {
 .delete-button:disabled {
   opacity: .5;
   cursor: wait;
+}
+
+/* EDIT FORM */
+
+.edit-product-form {
+  margin-top: 18px;
+  padding: 17px;
+  border: 1px solid #dce8ff;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f8faff, #ffffff);
+  animation: cardAppear .25s ease;
+}
+
+.edit-form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 17px;
+}
+
+.edit-form-heading strong {
+  font-size: 13px;
+  color: #243b63;
+}
+
+.edit-form-heading p {
+  margin: 5px 0 0;
+  color: #8c9ab0;
+  font-size: 10px;
+}
+
+.edit-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #e8efff;
+  color: #2563eb;
+}
+
+.edit-product-form .field {
+  margin-bottom: 13px;
+}
+
+.edit-product-form .field input {
+  background: white;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 17px;
+}
+
+.btn-cancel-edit,
+.btn-save-edit {
+  flex: 1;
+  min-height: 39px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 750;
+  transition: .2s;
+}
+
+.btn-cancel-edit {
+  border: 1px solid #e3e8f0;
+  background: white;
+  color: #68758a;
+}
+
+.btn-cancel-edit:hover:not(:disabled) {
+  background: #f1f4f8;
+}
+
+.btn-save-edit {
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #1746b0);
+  color: white;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, .16);
+}
+
+.btn-save-edit:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn-save-edit:disabled,
+.btn-cancel-edit:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
 /* PRICE */
@@ -1345,7 +1839,7 @@ button {
 .spinner {
   width: 17px;
   height: 17px;
-  border: 2px solid rgba(255,255,255,.4);
+  border: 2px solid rgba(255, 255, 255, .4);
   border-top-color: white;
 }
 
@@ -1358,7 +1852,9 @@ button {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* TRANSITIONS */
@@ -1471,6 +1967,18 @@ button {
 
   .products-heading {
     align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .heading-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-export {
+    flex: 1;
+    padding: 11px 8px;
+    font-size: 10px;
   }
 
   .count-badge {
