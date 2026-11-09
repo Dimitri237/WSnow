@@ -1,33 +1,129 @@
-<!-- components/Navbar.vue -->
 
 <template>
-  <header class="navbar" ref="navbar">
-    <div class="container nav-content">
-      <div></div>
-      <div class="nav-right">
-        <div  class="user-box">
+  <header class="navbar">
+    <div class="navbar-inner">
 
-          <!-- PHOTO -->
-          <img :src="currentUser?.image ||
-            'https://via.placeholder.com/100x100?text=ACTILC'
-            " alt="user" class="user-avatar" />
-
-          <!-- NOM -->
-          <div class="user-info">
-            <span class="welcome">
-              Bienvenue
-            </span>
-
-            <strong>
-              {{ currentUser?.name }}
-            </strong>
-          </div>
-          <!-- LOGOUT -->
-          <button class="logout-btn" @click="logout">
-            <img src="./icons/decon.png" alt="logout" />
-          </button>
-        </div>
+      <!-- LEFT : PAGE BRAND / CONTEXT -->
+      <div class="navbar-left">
       </div>
+
+      <!-- RIGHT : USER PROFILE -->
+      <div class="navbar-right">
+
+        <div class="user-wrapper" ref="userWrapper">
+
+          <button
+            class="user-profile"
+            type="button"
+            @click="toggleUserMenu"
+            :aria-expanded="showUserMenu"
+            aria-label="Ouvrir le menu utilisateur"
+          >
+
+            <div class="avatar-wrapper">
+              <img
+                :src="userAvatar"
+                alt="Photo de profil"
+                class="user-avatar"
+                @error="handleAvatarError"
+              />
+
+              <span class="online-indicator"></span>
+            </div>
+
+            <div class="user-info">
+              <span class="welcome-text">Bienvenue,</span>
+              <strong>{{ currentUser?.name || 'Utilisateur' }}</strong>
+            </div>
+
+            <svg
+              class="chevron"
+              :class="{ rotated: showUserMenu }"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+
+          </button>
+
+          <!-- USER DROPDOWN -->
+          <transition name="dropdown">
+
+            <div
+              v-if="showUserMenu"
+              class="user-dropdown"
+            >
+
+              <div class="dropdown-header">
+
+                <img
+                  :src="userAvatar"
+                  alt="Profil"
+                  class="dropdown-avatar"
+                  @error="handleAvatarError"
+                />
+
+                <div class="dropdown-user-info">
+                  <strong>
+                    {{ currentUser?.name || 'Utilisateur' }}
+                  </strong>
+
+                  <span>
+                    {{ currentUser?.email || 'Compte w_snow' }}
+                  </span>
+                </div>
+
+              </div>
+
+              <div class="dropdown-divider"></div>
+
+              <div class="account-status">
+                <span class="status-dot"></span>
+                Session active
+              </div>
+
+              <div class="dropdown-divider"></div>
+
+              <button
+                class="dropdown-logout"
+                type="button"
+                @click="logout"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path
+                    d="M10 17L15 12L10 7M15 12H3M12 3H19C20.1 3 21 3.9 21 5V19C21 20.1 20.1 21 19 21H12"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+
+                <span>Se déconnecter</span>
+              </button>
+
+            </div>
+
+          </transition>
+
+        </div>
+
+      </div>
+
     </div>
   </header>
 </template>
@@ -38,77 +134,130 @@ export default {
 
   data() {
     return {
-      isLoggedIn: false,
-
-      /**
-       * Utilisateur connecté
-       */
       currentUser: null,
+      showUserMenu: false,
+
+      defaultAvatar:
+        "https://ui-avatars.com/api/?name=ACTILC&background=123D2C&color=ffffff&size=128",
     };
+  },
+
+  computed: {
+    userAvatar() {
+      return (
+        this.currentUser?.image ||
+        this.defaultAvatar
+      );
+    },
   },
 
   mounted() {
     this.syncUser();
-    window.addEventListener("auth-changed", this.syncUser);
-    window.addEventListener("storage", this.syncUser);
-    /**
-     * Récupération utilisateur
-     */
-    const user = localStorage.getItem("user");
 
-    if (user) {
-      this.currentUser = JSON.parse(user);
-      this.isLoggedIn = true;
-    }
+    window.addEventListener(
+      "auth-changed",
+      this.syncUser
+    );
+
+    window.addEventListener(
+      "storage",
+      this.syncUser
+    );
 
     document.addEventListener(
       "click",
       this.handleClickOutside
     );
+
+    document.addEventListener(
+      "keydown",
+      this.handleEscape
+    );
   },
 
   beforeUnmount() {
+    window.removeEventListener(
+      "auth-changed",
+      this.syncUser
+    );
+
+    window.removeEventListener(
+      "storage",
+      this.syncUser
+    );
+
     document.removeEventListener(
       "click",
       this.handleClickOutside
     );
-    window.removeEventListener("auth-changed", this.syncUser);
-    window.removeEventListener("storage", this.syncUser);
+
+    document.removeEventListener(
+      "keydown",
+      this.handleEscape
+    );
   },
 
   methods: {
-    handleImageUpload(event) {
+    syncUser() {
+      try {
+        const user = localStorage.getItem("user");
 
-      const file = event.target.files[0];
+        this.currentUser = user
+          ? JSON.parse(user)
+          : null;
 
-      if (!file) return;
+      } catch (error) {
+        console.error(
+          "Erreur de récupération utilisateur :",
+          error
+        );
 
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        this.editUser.image = e.target.result;
-      };
-
-      reader.readAsDataURL(file);
+        this.currentUser = null;
+      }
     },
-    logout() {
+
+    toggleUserMenu() {
+      this.showUserMenu = !this.showUserMenu;
+    },
+
+    handleClickOutside(event) {
+      if (
+        this.$refs.userWrapper &&
+        !this.$refs.userWrapper.contains(event.target)
+      ) {
+        this.showUserMenu = false;
+      }
+    },
+
+    handleEscape(event) {
+      if (event.key === "Escape") {
+        this.showUserMenu = false;
+      }
+    },
+
+    handleAvatarError(event) {
+      event.target.onerror = null;
+      event.target.src = this.defaultAvatar;
+    },
+
+    async logout() {
+      this.showUserMenu = false;
+
       localStorage.removeItem("user");
 
       this.currentUser = null;
-      this.isLoggedIn = false;
-      this.mobileMenu = false;
-      this.$router.push("/");
-      this.$forceUpdate();
-    },
-    syncUser() {
-      const user = localStorage.getItem("user");
 
-      if (user) {
-        this.currentUser = JSON.parse(user);
-        this.isLoggedIn = true;
-      } else {
-        this.currentUser = null;
-        this.isLoggedIn = false;
+      window.dispatchEvent(
+        new Event("auth-changed")
+      );
+
+      try {
+        await this.$router.replace("/");
+      } catch (error) {
+        console.error(
+          "Erreur de redirection :",
+          error
+        );
       }
     },
   },
@@ -116,320 +265,387 @@ export default {
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600&display=swap");
+/* =========================================
+   NAVBAR - PREMIUM ADMIN DASHBOARD
+========================================= */
 
 .navbar {
-  /* background: white; */
-  
-  height: 90px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  --sidebar-width: 260px;
   top: 0;
-  /* box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05); */
-  font-family: "Poppins", sans-serif;
+  left: var(--sidebar-width);
+  right: 0;
+  height: 76px;
+
+  z-index: 1000;
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  transition:
+    left 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
-.container {
-  max-width: 1320px;
-  margin: auto;
-}
+.navbar-inner {
+  width: 95%;
+  height: 100%;
 
-.nav-content {
+  padding: 0 32px;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.user-box {
+/* LEFT */
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.breadcrumb-label {
+  color: #174d36;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  letter-spacing: 1.2px;
+}
+
+.breadcrumb-separator {
+  color: #c4cdc6;
+  font-size: 17px;
+}
+
+.breadcrumb-current {
+  color: #7b8980;
+
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* RIGHT */
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* USER */
+
+.user-wrapper {
+  position: relative;
+}
+
+.user-profile {
   display: flex;
   align-items: center;
   gap: 12px;
+
+  padding: 7px 12px;
+
+  border: 1px solid transparent;
+  border-radius: 12px;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  transition: all 0.25s ease;
+}
+
+.user-profile:hover,
+.user-profile[aria-expanded="true"] {
+  background: #f5f8f5;
+  border-color: #e8eee8;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
 }
 
 .user-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+
   object-fit: cover;
-  border: 2px solid #1d6b2f;
+
+  border-radius: 50%;
+
+  border: 2px solid #e5eee7;
+
+  display: block;
 }
 
-
-
-/* CLOSE */
-
-.close-profile-modal {
+.online-indicator {
   position: absolute;
 
-  top: 20px;
-  right: 20px;
+  width: 10px;
+  height: 10px;
 
-  width: 48px;
-  height: 48px;
+  right: 0;
+  bottom: 1px;
 
-  border: none;
   border-radius: 50%;
 
-  background: #f3f3f3;
+  background: #22a06b;
 
-  cursor: pointer;
-
-  font-size: 1.1rem;
-}
-
-/* HEADER */
-
-.profile-header {
-  display: flex;
-  align-items: center;
-  gap: 25px;
-
-  margin-bottom: 35px;
-}
-
-.profile-preview {
-  width: 110px;
-  height: 110px;
-
-  border-radius: 24px;
-
-  object-fit: cover;
-}
-
-/* FORM */
-
-.profile-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 22px;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.input-group label {
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-.input-group input {
-  height: 58px;
-
-  border: none;
-  border-radius: 16px;
-
-  background: #f5f5f5;
-
-  padding: 0 18px;
-
-  font-size: 1rem;
-}
-
-.input-group input:focus {
-  outline: none;
-
-  box-shadow:
-    0 0 0 4px rgba(47, 168, 79, 0.12);
-
-  background: white;
-}
-
-/* FOOTER */
-
-.profile-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-
-  margin-top: 35px;
-}
-
-.cancel-btn {
-  height: 56px;
-  padding: 0 24px;
-
-  border: none;
-  border-radius: 16px;
-
-  background: rgb(211, 42, 42);
-
-  cursor: pointer;
-
-  font-weight: 600;
-}
-
-.save-btn {
-  height: 56px;
-  padding: 0 28px;
-
-  border: none;
-  border-radius: 16px;
-
-  background:
-    linear-gradient(135deg,
-      #2fa84f,
-      #1d7b35);
-
-  color: white;
-
-  cursor: pointer;
-
-  font-weight: 600;
-
-  box-shadow:
-    0 10px 25px rgba(47, 168, 79, 0.25);
-}
-
-/* RESPONSIVE */
-
-@media (max-width: 768px) {
-  .profile-modal-overlay {
-
-    padding: 20px 0;
-  }
-
-  .profile-form {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-header {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .profile-footer {
-    flex-direction: column;
-  }
-
-  .cancel-btn,
-  .save-btn {
-    width: 100%;
-  }
+  border: 2px solid white;
 }
 
 .user-info {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  align-items: flex-start;
+  gap: 3px;
 }
 
-.welcome {
-  font-size: 0.75rem;
-  color: #777;
+.welcome-text {
+  color: #89958d;
+
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .user-info strong {
-  font-size: 0.95rem;
-  color: #1c5d2d;
-  max-width: 140px;
-  white-space: nowrap;
+  color: #243b2d;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  max-width: 180px;
+
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.logout-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+.chevron {
+  color: #849187;
+
+  transition: transform 0.25s ease;
 }
 
-.logout-btn img {
-  width: 48px;
-  height: 48px;
-  transition: 0.3s ease;
+.chevron.rotated {
+  transform: rotate(180deg);
 }
 
-.logout-btn img:hover {
-  transform: scale(1.08);
+/* DROPDOWN */
+
+.user-dropdown {
+  position: absolute;
+
+  top: calc(100% + 13px);
+  right: 0;
+
+  width: 285px;
+
+  padding: 14px;
+
+  background: #ffffff;
+
+  border: 1px solid #e8eee9;
+  border-radius: 15px;
+
+  box-shadow:
+    0 15px 45px rgba(20, 55, 35, 0.13),
+    0 3px 10px rgba(20, 55, 35, 0.04);
+
+  z-index: 1100;
 }
 
-.logo {
+.dropdown-header {
   display: flex;
   align-items: center;
   gap: 12px;
+
+  padding: 8px 4px 14px;
 }
 
-.logo img {
-  width: 100px;
-  height: 100px;
+.dropdown-avatar {
+  width: 43px;
+  height: 43px;
+
   object-fit: cover;
-  border-radius: 8px;
+
+  border-radius: 50%;
+  border: 2px solid #e8eee9;
 }
 
-.logo span {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1c5d2d;
-  font-family: "Playfair Display", serif;
-}
-
-.nav-links {
+.dropdown-user-info {
   display: flex;
-  gap: 40px;
+  flex-direction: column;
+  gap: 5px;
+
+  min-width: 0;
 }
 
-.nav-links a {
-  text-decoration: none;
-  color: #222;
-  font-weight: 500;
-  transition: 0.3s ease;
+.dropdown-user-info strong {
+  color: #243b2d;
+
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.nav-links a:hover {
-  color: #23853d;
+.dropdown-user-info span {
+  color: #89958d;
+
+  font-size: 11px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.nav-right {
+.dropdown-divider {
+  height: 1px;
+  background: #edf1ed;
+  margin: 5px 0;
+}
+
+/* STATUS */
+
+.account-status {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 9px;
+
+  padding: 11px 5px;
+
+  color: #647369;
+
+  font-size: 12px;
 }
 
-.lang {
-  font-weight: 500;
+.status-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #24a36d;
 }
 
-.primary-btn {
+/* LOGOUT */
+
+.dropdown-logout {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  padding: 12px 10px;
+
   border: none;
-  background: linear-gradient(135deg, #1d6b2f, #41b15d);
-  color: white;
-  padding: 14px 26px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.3s ease;
-}
+  border-radius: 9px;
 
-.primary-btn:hover {
-  transform: translateY(-2px);
-}
-
-.menu-btn {
-  color: #1c5d2d;
-  display: none;
-  border: none;
   background: transparent;
-  font-size: 2rem;
+
+  color: #d04444;
+
+  font-size: 13px;
+  font-weight: 600;
+
   cursor: pointer;
+
+  transition: all 0.2s ease;
 }
 
-/* RESPONSIVE */
+.dropdown-logout:hover {
+  background: #fff1f1;
+  color: #b52d2d;
+}
 
-@media (max-width: 992px) {
+/* ANIMATION */
 
-  .nav-links{
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 1024px) {
+  .navbar {
+    --sidebar-width: 230px;
+  }
+
+  .navbar-inner {
+    padding: 0 22px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    --sidebar-width: 0px;
+
+    height: 68px;
+  }
+
+  .navbar-inner {
+    padding: 0 15px;
+  }
+
+  .breadcrumb-current,
+  .breadcrumb-separator {
     display: none;
   }
 
-  .menu-btn {
-    display: block;
+  .user-profile {
+    gap: 9px;
+    padding: 5px;
+  }
+
+  .avatar-wrapper {
+    width: 38px;
+    height: 38px;
+  }
+
+  .user-info strong {
+    max-width: 115px;
+    font-size: 12px;
+  }
+
+  .welcome-text {
+    font-size: 10px;
+  }
+
+  .user-dropdown {
+    width: min(285px, calc(100vw - 30px));
+  }
+}
+
+@media (max-width: 380px) {
+  .navbar-inner {
+    padding: 0 10px;
+  }
+
+  .user-info {
+    display: none;
+  }
+
+  .breadcrumb-label {
+    font-size: 11px;
   }
 }
 </style>
