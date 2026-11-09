@@ -1,4 +1,3 @@
-
 <template>
   <Navbar />
   <Sidebar />
@@ -52,7 +51,9 @@
           <span class="stat-label">Articles vendus</span>
           <span class="stat-icon orange">▤</span>
         </div>
-        <div class="stat-value">{{ todayItemsCount }}</div>
+        <div class="stat-value">
+          {{ formatQuantity(todayItemsCount) }}
+        </div>
         <div class="stat-footer">Unités sorties aujourd'hui</div>
       </div>
     </section>
@@ -75,11 +76,7 @@
           <div class="form-grid">
             <div class="field">
               <label>Nom du client</label>
-              <input
-                v-model.trim="clientName"
-                type="text"
-                placeholder="Ex : Jean Dupont"
-              />
+              <input v-model.trim="clientName" type="text" placeholder="Ex : Jean Dupont" />
             </div>
 
             <div class="field">
@@ -92,11 +89,8 @@
 
             <div class="field full-field">
               <label>Remarque / Observation</label>
-              <textarea
-                v-model.trim="remark"
-                rows="2"
-                placeholder="Ajouter une observation concernant cette vente..."
-              ></textarea>
+              <textarea v-model.trim="remark" rows="2"
+                placeholder="Ajouter une observation concernant cette vente..."></textarea>
             </div>
           </div>
         </div>
@@ -116,34 +110,23 @@
               <label>Produit</label>
               <select v-model="productId">
                 <option value="" disabled>Choisir un produit</option>
-                <option
-                  v-for="p in products"
-                  :key="p.id"
-                  :value="p.id"
-                  :disabled="getAvailableStock(p.id) <= 0"
-                >
+                <option v-for="p in products" :key="p.id" :value="p.id" :disabled="getAvailableStock(p.id) <= 0">
                   {{ p.name }} — {{ formatMoney(p.price) }}
-                  (Stock : {{ getAvailableStock(p.id) }})
+                  (Stock : {{ formatQuantity(getAvailableStock(p.id)) }})
                 </option>
               </select>
             </div>
 
             <div class="field quantity-field">
               <label>Quantité</label>
-              <input
-                v-model.number="qty"
-                type="number"
-                min="1"
-                step="1"
-                @keyup.enter="addToCart"
-              />
+              <input v-model.number="qty" type="number" min="0.001" step="any" placeholder="Ex : 3,5"
+                @keyup.enter="addToCart" />
             </div>
 
-            <button
-              class="btn-add"
-              @click="addToCart"
-              :disabled="!productId || !Number.isInteger(qty) || qty <= 0"
-            >
+            <button class="btn-add" @click="addToCart" :disabled="!productId ||
+              !Number.isFinite(Number(qty)) ||
+              Number(qty) <= 0
+              ">
               <span>＋</span> Ajouter
             </button>
           </div>
@@ -151,8 +134,10 @@
           <div v-if="selectedProduct" class="product-stock-info">
             <span class="stock-indicator"></span>
             Stock disponible :
-            <strong>{{ getAvailableStock(selectedProduct.id) }}</strong>
-            <span class="stock-unit">unité(s)</span>
+            <strong>
+              {{ formatQuantity(getAvailableStock(selectedProduct.id)) }}
+            </strong>
+            <span class="stock-unit">casier(s)</span>
           </div>
         </div>
 
@@ -169,13 +154,8 @@
 
           <div v-if="sales.length" class="sales-list">
 
-            <div
-              v-for="s in paginatedSales"
-              :key="s.id"
-              class="sale-entry"
-              :class="{ selected: openedSale === s.id }"
-              @click="openModal(s)"
-            >
+            <div v-for="s in paginatedSales" :key="s.id" class="sale-entry" :class="{ selected: openedSale === s.id }"
+              @click="openModal(s)">
               <div class="sale-date-icon">
                 <span>▤</span>
               </div>
@@ -186,10 +166,7 @@
                   {{ s.clientName || 'Client comptant' }}
                 </span>
 
-                <span
-                  v-if="currentUser?.role === 'Administrateur'"
-                  class="seller-label"
-                >
+                <span v-if="currentUser?.role === 'Administrateur'" class="seller-label">
                   Vendeur : {{ s.seller || 'Inconnu' }}
                 </span>
               </div>
@@ -200,20 +177,12 @@
               </div>
 
               <div class="sale-actions">
-                <button
-                  class="icon-action view-action"
-                  title="Voir les détails"
-                  @click.stop="openModal(s)"
-                >
+                <button class="icon-action view-action" title="Voir les détails" @click.stop="openModal(s)">
                   ↗
                 </button>
 
-                <button
-                  v-if="currentUser?.role === 'Administrateur'"
-                  class="icon-action delete-action"
-                  title="Supprimer la vente"
-                  @click.stop="deleteSale(s)"
-                >
+                <button v-if="currentUser?.role === 'Administrateur'" class="icon-action delete-action"
+                  title="Supprimer la vente" @click.stop="deleteSale(s)">
                   ✕
                 </button>
               </div>
@@ -264,15 +233,11 @@
 
         <div v-if="cart.length" class="cart-content">
 
-          <div
-            v-for="item in cart"
-            :key="item.productId"
-            class="cart-item"
-          >
+          <div v-for="item in cart" :key="item.productId" class="cart-item">
             <div class="cart-item-info">
               <strong>{{ item.name }}</strong>
               <span>
-                {{ item.qty }} × {{ formatMoney(item.price) }}
+                {{ formatQuantity(item.qty) }} × {{ formatMoney(item.price) }}
               </span>
             </div>
 
@@ -287,7 +252,7 @@
           <div class="cart-summary">
             <div class="summary-line">
               <span>Nombre d'articles</span>
-              <strong>{{ cartItemsCount }}</strong>
+              <strong>{{ formatQuantity(cartItemsCount) }}</strong>
             </div>
 
             <div class="summary-line">
@@ -301,11 +266,7 @@
             </div>
           </div>
 
-          <button
-            class="checkout-btn"
-            @click="saveSale"
-            :disabled="loading || !cart.length"
-          >
+          <button class="checkout-btn" @click="saveSale" :disabled="loading || !cart.length">
             <span v-if="loading" class="spinner"></span>
             <template v-else>
               Valider la vente
@@ -334,12 +295,7 @@
     </section>
 
     <!-- MODAL DETAILS -->
-    <div
-      v-if="modalSale"
-      class="modal-overlay"
-      @click.self="closeModal"
-      @keydown.esc="closeModal"
-    >
+    <div v-if="modalSale" class="modal-overlay" @click.self="closeModal" @keydown.esc="closeModal">
       <div class="modal">
 
         <div class="modal-header">
@@ -376,13 +332,9 @@
             <span>Total</span>
           </div>
 
-          <div
-            v-for="(item, index) in modalSale.items || []"
-            :key="item.productId || index"
-            class="invoice-row"
-          >
+          <div v-for="(item, index) in modalSale.items || []" :key="item.productId || index" class="invoice-row">
             <strong>{{ item.name }}</strong>
-            <span>{{ item.qty }}</span>
+            <span>{{ formatQuantity(item.qty) }}</span>
             <span>{{ formatMoney(item.price) }}</span>
             <strong>{{ formatMoney(item.qty * item.price) }}</strong>
           </div>
@@ -409,6 +361,7 @@
 </template>
 
 <script>
+
 import { db } from "../firebase"
 import Sidebar from "../components/SidebarPage.vue"
 import Navbar from "../components/NavbarPage.vue"
@@ -456,24 +409,33 @@ export default {
 
   computed: {
     selectedProduct() {
-      return this.products.find(p => p.id === this.productId) || null
+      return this.products.find(
+        p => p.id === this.productId
+      ) || null
     },
 
     cartTotal() {
       return this.cart.reduce(
-        (sum, item) => sum + item.qty * item.price,
+        (sum, item) =>
+          sum + item.qty * item.price,
         0
       )
     },
 
     cartItemsCount() {
-      return this.cart.reduce((sum, item) => sum + item.qty, 0)
+      return this.cart.reduce(
+        (sum, item) => sum + item.qty,
+        0
+      )
     },
 
     todaySales() {
       return this.sales.filter(s => {
         const date = this.getDateValue(s.date)
-        if (!date || isNaN(date.getTime())) return false
+
+        if (!date || isNaN(date.getTime())) {
+          return false
+        }
 
         const now = new Date()
 
@@ -491,32 +453,82 @@ export default {
 
     todaySalesTotal() {
       return this.todaySales.reduce(
-        (sum, sale) => sum + (Number(sale.total) || 0),
+        (sum, sale) =>
+          sum + (Number(sale.total) || 0),
         0
       )
     },
 
     todayItemsCount() {
       return this.todaySales.reduce(
-        (sum, sale) => sum + (sale.items || []).reduce(
-          (total, item) => total + (Number(item.qty) || 0),
-          0
-        ),
+        (sum, sale) => {
+          return sum + (sale.items || []).reduce(
+            (total, item) =>
+              total + (Number(item.qty) || 0),
+            0
+          )
+        },
         0
       )
     },
 
     totalPages() {
-      return Math.ceil(this.sales.length / this.pageSize)
+      return Math.ceil(
+        this.sales.length / this.pageSize
+      )
     },
 
     paginatedSales() {
-      const start = (this.currentPage - 1) * this.pageSize
-      return this.sales.slice(start, start + this.pageSize)
+      const start =
+        (this.currentPage - 1) * this.pageSize
+
+      return this.sales.slice(
+        start,
+        start + this.pageSize
+      )
     }
   },
 
   methods: {
+
+    // =====================================
+    // GESTION DES NOMBRES DECIMAUX
+    // =====================================
+
+    normalizeQuantity(value) {
+      const number = Number(value)
+
+      if (!Number.isFinite(number)) return 0
+
+      // Évite les erreurs de précision des nombres flottants.
+      return Number(number.toFixed(6))
+    },
+
+    formatQuantity(quantity) {
+      return new Intl.NumberFormat("fr-FR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 6
+      }).format(
+        this.normalizeQuantity(quantity)
+      )
+    },
+
+    isValidQuantity(value) {
+      const number = Number(value)
+
+      return (
+        value !== "" &&
+        value !== null &&
+        value !== undefined &&
+        Number.isFinite(number) &&
+        number > 0
+      )
+    },
+
+    // =====================================
+    // DATES
+    // =====================================
+
     getDateValue(date) {
       if (!date) return null
 
@@ -531,11 +543,34 @@ export default {
       return new Date(date)
     },
 
+    formatDate(date) {
+      const d = this.getDateValue(date)
+
+      if (!d || isNaN(d.getTime())) {
+        return "Date inconnue"
+      }
+
+      return d.toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    },
+
+    // =====================================
+    // CHARGEMENT DES DONNEES
+    // =====================================
+
     async load() {
       this.pageLoading = true
 
       try {
-        const [productsSnap, salesSnap] = await Promise.all([
+        const [
+          productsSnap,
+          salesSnap
+        ] = await Promise.all([
           getDocs(collection(db, "products")),
           getDocs(collection(db, "sales"))
         ])
@@ -551,73 +586,95 @@ export default {
             ...d.data()
           }))
           .sort((a, b) => {
-            const da = this.getDateValue(a.date)?.getTime() || 0
-            const dbDate = this.getDateValue(b.date)?.getTime() || 0
+            const da =
+              this.getDateValue(a.date)?.getTime() || 0
+
+            const dbDate =
+              this.getDateValue(b.date)?.getTime() || 0
 
             return dbDate - da
           })
 
-        if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        if (
+          this.currentPage > this.totalPages &&
+          this.totalPages > 0
+        ) {
           this.currentPage = this.totalPages
         }
 
       } catch (error) {
         console.error("Erreur chargement :", error)
+
         alert("Impossible de charger les données.")
+
       } finally {
         this.pageLoading = false
       }
     },
 
+    // =====================================
+    // FORMATAGE DES PRIX
+    // =====================================
+
     formatMoney(amount) {
       return new Intl.NumberFormat("fr-FR", {
         maximumFractionDigits: 0
-      }).format(Number(amount) || 0) + " FCFA"
+      }).format(
+        Number(amount) || 0
+      ) + " FCFA"
     },
 
-    formatDate(date) {
-      const d = this.getDateValue(date)
-
-      if (!d || isNaN(d.getTime())) return "Date inconnue"
-
-      return d.toLocaleString("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      })
-    },
+    // =====================================
+    // STOCK DISPONIBLE
+    // =====================================
 
     getAvailableStock(productId) {
-      const product = this.products.find(p => p.id === productId)
+      const product = this.products.find(
+        p => p.id === productId
+      )
 
       if (!product) return 0
 
-      const stock = Number(product.stocks?.[this.depotId]) || 0
+      const stock = this.normalizeQuantity(
+        product.stocks?.[this.depotId] ?? 0
+      )
 
       const inCart = this.cart.find(
         item => item.productId === productId
       )?.qty || 0
 
-      return Math.max(0, stock - inCart)
+      return Math.max(
+        0,
+        this.normalizeQuantity(stock - inCart)
+      )
     },
+
+    // =====================================
+    // AJOUT AU PANIER
+    // =====================================
 
     addToCart() {
       const product = this.selectedProduct
-      const quantity = Number(this.qty)
+
+      const quantity = this.normalizeQuantity(
+        this.qty
+      )
 
       if (!product) {
         alert("Veuillez sélectionner un produit.")
         return
       }
 
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        alert("Veuillez saisir une quantité entière valide.")
+      if (!this.isValidQuantity(this.qty)) {
+        alert(
+          "Veuillez saisir une quantité décimale valide supérieure à zéro."
+        )
         return
       }
 
-      const stock = Number(product.stocks?.[this.depotId]) || 0
+      const stock = this.normalizeQuantity(
+        product.stocks?.[this.depotId] ?? 0
+      )
 
       const existing = this.cart.find(
         item => item.productId === product.id
@@ -625,23 +682,37 @@ export default {
 
       const alreadyAdded = existing?.qty || 0
 
-      if (alreadyAdded + quantity > stock) {
+      const totalRequested = this.normalizeQuantity(
+        alreadyAdded + quantity
+      )
+
+      if (totalRequested > stock) {
+        const available = this.normalizeQuantity(
+          stock - alreadyAdded
+        )
+
         alert(
           `Stock insuffisant pour ${product.name}.\n` +
-          `Stock disponible : ${stock - alreadyAdded}`
+          `Stock disponible : ${this.formatQuantity(
+            Math.max(0, available)
+          )} casier(s).`
         )
+
         return
       }
 
       const price = Number(product.price)
 
-      if (!Number.isFinite(price) || price < 0) {
+      if (
+        !Number.isFinite(price) ||
+        price < 0
+      ) {
         alert("Le prix de ce produit est invalide.")
         return
       }
 
       if (existing) {
-        existing.qty += quantity
+        existing.qty = totalRequested
       } else {
         this.cart.push({
           productId: product.id,
@@ -655,19 +726,35 @@ export default {
       this.qty = 1
     },
 
+    // =====================================
+    // SUPPRESSION D'UN ARTICLE DU PANIER
+    // =====================================
+
     removeFromCart(id) {
       this.cart = this.cart.filter(
         item => item.productId !== id
       )
     },
 
+    // =====================================
+    // VIDER LE PANIER
+    // =====================================
+
     clearCart() {
       if (!this.cart.length) return
 
-      if (confirm("Voulez-vous vider entièrement le panier ?")) {
+      if (
+        confirm(
+          "Voulez-vous vider entièrement le panier ?"
+        )
+      ) {
         this.cart = []
       }
     },
+
+    // =====================================
+    // ENREGISTREMENT DE LA VENTE
+    // =====================================
 
     async saveSale() {
       if (this.loading || !this.cart.length) return
@@ -675,75 +762,126 @@ export default {
       this.loading = true
 
       try {
-        const items = this.cart.map(item => ({ ...item }))
+        // Préparer les articles avec les quantités normalisées.
+        const items = this.cart.map(item => ({
+          ...item,
+          qty: this.normalizeQuantity(item.qty)
+        }))
+
+        // Vérifier toutes les quantités.
+        for (const item of items) {
+          if (!this.isValidQuantity(item.qty)) {
+            throw new Error(
+              `Quantité invalide pour ${item.name}.`
+            )
+          }
+        }
 
         const total = items.reduce(
-          (sum, item) => sum + item.qty * item.price,
+          (sum, item) =>
+            sum + item.qty * item.price,
           0
         )
 
         const saleData = {
           depotId: this.depotId,
+
           items,
-          clientName: this.clientName || "Client comptant",
+
+          clientName:
+            this.clientName || "Client comptant",
+
           remark: this.remark || "",
+
           total,
+
           seller:
             this.currentUser?.name ||
             this.currentUser?.username ||
             "Inconnu",
+
           date: new Date()
         }
 
-        const saleRef = doc(collection(db, "sales"))
+        const saleRef = doc(
+          collection(db, "sales")
+        )
 
-        // Stock et vente enregistrés dans une seule transaction.
-        await runTransaction(db, async transaction => {
-          const productRefs = items.map(item => ({
-            item,
-            ref: doc(db, "products", item.productId)
-          }))
+        // Transaction atomique : stocks + vente.
+        await runTransaction(
+          db,
+          async transaction => {
 
-          // Toutes les lectures sont effectuées avant les écritures.
-          const snapshots = await Promise.all(
-            productRefs.map(({ ref }) => transaction.get(ref))
-          )
-
-          const updates = []
-
-          for (let index = 0; index < productRefs.length; index++) {
-            const { item, ref } = productRefs[index]
-            const snapshot = snapshots[index]
-
-            if (!snapshot.exists()) {
-              throw new Error(`Produit introuvable : ${item.name}`)
-            }
-
-            const product = snapshot.data()
-            const stock = Number(product.stocks?.[this.depotId]) || 0
-
-            if (stock < item.qty) {
-              throw new Error(
-                `Stock insuffisant pour ${item.name}. Disponible : ${stock}`
+            const productRefs = items.map(item => ({
+              item,
+              ref: doc(
+                db,
+                "products",
+                item.productId
               )
+            }))
+
+            // Toutes les lectures avant les écritures.
+            const snapshots = await Promise.all(
+              productRefs.map(({ ref }) =>
+                transaction.get(ref)
+              )
+            )
+
+            const updates = []
+
+            for (
+              let index = 0;
+              index < productRefs.length;
+              index++
+            ) {
+              const { item, ref } =
+                productRefs[index]
+
+              const snapshot = snapshots[index]
+
+              if (!snapshot.exists()) {
+                throw new Error(
+                  `Produit introuvable : ${item.name}`
+                )
+              }
+
+              const product = snapshot.data()
+
+              const stock = this.normalizeQuantity(
+                product.stocks?.[this.depotId] ?? 0
+              )
+
+              if (stock < item.qty) {
+                throw new Error(
+                  `Stock insuffisant pour ${item.name}.\n` +
+                  `Disponible : ${this.formatQuantity(stock)} casier(s).`
+                )
+              }
+
+              const newStock = this.normalizeQuantity(
+                stock - item.qty
+              )
+
+              updates.push({
+                ref,
+                stock: newStock
+              })
             }
 
-            updates.push({
-              ref,
-              stock: stock - item.qty
+            // Déduire les stocks.
+            updates.forEach(({ ref, stock }) => {
+              transaction.update(ref, {
+                [`stocks.${this.depotId}`]: stock
+              })
             })
+
+            // Enregistrer la vente.
+            transaction.set(saleRef, saleData)
           }
+        )
 
-          updates.forEach(({ ref, stock }) => {
-            transaction.update(ref, {
-              [`stocks.${this.depotId}`]: stock
-            })
-          })
-
-          transaction.set(saleRef, saleData)
-        })
-
-        // Impression après confirmation de l'enregistrement.
+        // Recharger les données après validation.
         await this.load()
 
         this.cart = []
@@ -752,11 +890,17 @@ export default {
         this.productId = ""
         this.qty = 1
 
+        // Impression de la facture.
         await printInvoiceDirect(
-          { id: saleRef.id, total },
+          {
+            id: saleRef.id,
+            total
+          },
           items,
           saleData.clientName,
-          { name: "Dépôt principal" }
+          {
+            name: "Dépôt principal"
+          }
         )
 
         alert("Vente enregistrée avec succès !")
@@ -768,85 +912,185 @@ export default {
           error.message ||
           "Une erreur est survenue lors de l'enregistrement."
         )
+
       } finally {
         this.loading = false
       }
     },
+
+    // =====================================
+    // SUPPRESSION D'UNE VENTE
+    // ET RESTAURATION DES STOCKS
+    // =====================================
 
     async deleteSale(sale) {
       if (this.loading) return
 
-      if (!confirm(
-        "Voulez-vous vraiment supprimer cette vente et restaurer les stocks ?"
-      )) return
+      if (
+        !confirm(
+          "Voulez-vous vraiment supprimer cette vente et restaurer les stocks ?"
+        )
+      ) {
+        return
+      }
 
       this.loading = true
 
       try {
-        await runTransaction(db, async transaction => {
-          const saleRef = doc(db, "sales", sale.id)
-          const saleSnap = await transaction.get(saleRef)
+        await runTransaction(
+          db,
+          async transaction => {
 
-          if (!saleSnap.exists()) {
-            throw new Error("Cette vente n'existe plus.")
-          }
+            const saleRef = doc(
+              db,
+              "sales",
+              sale.id
+            )
 
-          const saleData = saleSnap.data()
-          const items = saleData.items || []
+            const saleSnap = await transaction.get(
+              saleRef
+            )
 
-          const productRefs = items.map(item => ({
-            item,
-            ref: doc(db, "products", item.productId)
-          }))
-
-          const snapshots = await Promise.all(
-            productRefs.map(({ ref }) => transaction.get(ref))
-          )
-
-          const updates = []
-
-          for (let index = 0; index < productRefs.length; index++) {
-            const { item, ref } = productRefs[index]
-            const snapshot = snapshots[index]
-
-            if (!snapshot.exists()) {
+            if (!saleSnap.exists()) {
               throw new Error(
-                `Impossible de restaurer le stock : ${item.name} introuvable.`
+                "Cette vente n'existe plus."
               )
             }
 
-            const product = snapshot.data()
-            const stock = Number(
-              product.stocks?.[saleData.depotId]
-            ) || 0
+            const saleData = saleSnap.data()
+            const items = saleData.items || []
 
-            updates.push({
-              ref,
-              stock: stock + Number(item.qty)
+            if (!saleData.depotId) {
+              throw new Error(
+                "Dépôt de la vente introuvable. Restauration annulée."
+              )
+            }
+
+            // Regrouper les quantités par produit.
+            const quantitiesByProduct = new Map()
+
+            items.forEach(item => {
+              if (!item.productId) {
+                throw new Error(
+                  `Identifiant manquant pour ${item.name || "un produit"}.`
+                )
+              }
+
+              const quantity = Number(item.qty)
+
+              if (
+                !Number.isFinite(quantity) ||
+                quantity < 0
+              ) {
+                throw new Error(
+                  `Quantité invalide pour ${item.name}.`
+                )
+              }
+
+              const previous =
+                quantitiesByProduct.get(item.productId) || 0
+
+              quantitiesByProduct.set(
+                item.productId,
+                this.normalizeQuantity(
+                  previous + quantity
+                )
+              )
             })
+
+            const productRefs = Array.from(
+              quantitiesByProduct.entries()
+            ).map(([productId, quantity]) => ({
+              productId,
+              quantity,
+              ref: doc(
+                db,
+                "products",
+                productId
+              )
+            }))
+
+            // Lire tous les produits avant les écritures.
+            const snapshots = await Promise.all(
+              productRefs.map(({ ref }) =>
+                transaction.get(ref)
+              )
+            )
+
+            const updates = []
+
+            for (
+              let index = 0;
+              index < productRefs.length;
+              index++
+            ) {
+              const {
+                productId,
+                quantity,
+                ref
+              } = productRefs[index]
+
+              const snapshot = snapshots[index]
+
+              if (!snapshot.exists()) {
+                throw new Error(
+                  `Impossible de restaurer le stock : produit ${productId} introuvable.`
+                )
+              }
+
+              const product = snapshot.data()
+
+              const stock = this.normalizeQuantity(
+                product.stocks?.[saleData.depotId] ?? 0
+              )
+
+              const restoredStock =
+                this.normalizeQuantity(
+                  stock + quantity
+                )
+
+              updates.push({
+                ref,
+                stock: restoredStock
+              })
+            }
+
+            // Restaurer les quantités.
+            updates.forEach(({ ref, stock }) => {
+              transaction.update(ref, {
+                [`stocks.${saleData.depotId}`]: stock
+              })
+            })
+
+            // Supprimer la vente.
+            transaction.delete(saleRef)
           }
-
-          updates.forEach(({ ref, stock }) => {
-            transaction.update(ref, {
-              [`stocks.${saleData.depotId}`]: stock
-            })
-          })
-
-          transaction.delete(saleRef)
-        })
+        )
 
         this.closeModal()
+
         await this.load()
 
-        alert("Vente supprimée et stock restauré avec succès.")
+        alert(
+          "Vente supprimée et stocks restaurés avec succès."
+        )
 
       } catch (error) {
         console.error("Erreur suppression :", error)
-        alert(error.message || "Impossible de supprimer cette vente.")
+
+        alert(
+          error.message ||
+          "Impossible de supprimer cette vente."
+        )
+
       } finally {
         this.loading = false
       }
     },
+
+    // =====================================
+    // MODAL DETAILS VENTE
+    // =====================================
 
     openModal(sale) {
       this.modalSale = sale
@@ -858,12 +1102,20 @@ export default {
       this.openedSale = null
     },
 
+    // =====================================
+    // PAGINATION
+    // =====================================
+
     prevPage() {
-      if (this.currentPage > 1) this.currentPage--
+      if (this.currentPage > 1) {
+        this.currentPage--
+      }
     },
 
     nextPage() {
-      if (this.currentPage < this.totalPages) this.currentPage++
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++
+      }
     }
   },
 
@@ -879,7 +1131,9 @@ export default {
     this.load()
   }
 }
+
 </script>
+
 
 <style scoped>
 /* ================================
@@ -1661,6 +1915,7 @@ button {
     opacity: 0;
     transform: translateY(12px) scale(.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1749,8 +2004,8 @@ button {
   color: #344158;
 }
 
-.invoice-row > :last-child,
-.invoice-table-head > :last-child {
+.invoice-row> :last-child,
+.invoice-table-head> :last-child {
   text-align: right;
 }
 
@@ -1810,7 +2065,9 @@ button {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* RESPONSIVE */

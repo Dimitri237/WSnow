@@ -48,7 +48,7 @@
         </div>
         <div>
           <span class="stat-label">Articles réceptionnés</span>
-          <strong>{{ totalUnits }}</strong>
+          <strong>{{ formatQuantity(totalUnits) }}</strong>
           <small>Quantités cumulées</small>
         </div>
       </article>
@@ -60,7 +60,7 @@
         <div>
           <span class="stat-label">Panier actuel</span>
           <strong>{{ cart.length }}</strong>
-          <small>{{ cartTotalQty }} unité(s) à enregistrer</small>
+          <small>{{ formatQuantity(cartTotalQty) }} casier(s) à enregistrer</small>
         </div>
       </article>
     </section>
@@ -95,11 +95,14 @@
           <input
             v-model.number="qty"
             type="number"
-            min="1"
-            step="1"
-            placeholder="Ex : 10"
+            min="0.001"
+            step="any"
+            placeholder="Ex : 3,5"
             @keyup.enter="addToCart"
           />
+          <small class="input-hint">
+            Les quantités décimales sont acceptées.
+          </small>
         </div>
 
         <div class="form-group action-field">
@@ -107,7 +110,7 @@
           <button
             class="btn btn-primary"
             @click="addToCart"
-            :disabled="!products.length"
+            :disabled="!products.length || loading"
           >
             <span>＋</span> Ajouter au panier
           </button>
@@ -120,7 +123,7 @@
           <strong>{{ selectedProduct.name }}</strong>
           <span>
             Stock actuel :
-            <b>{{ getProductStock(selectedProduct) }} casier(s)</b>
+            <b>{{ formatQuantity(getProductStock(selectedProduct)) }} casier(s)</b>
           </span>
         </div>
         <div class="preview-price">
@@ -141,7 +144,9 @@
           <h2>Panier de réception</h2>
           <p>{{ cart.length }} produit(s) sélectionné(s)</p>
         </div>
-        <span class="cart-count">{{ cartTotalQty }} casier(s)</span>
+        <span class="cart-count">
+          {{ formatQuantity(cartTotalQty) }} casier(s)
+        </span>
       </div>
 
       <div class="cart-list">
@@ -159,15 +164,17 @@
 
           <div class="cart-quantity">
             <button
-              @click="changeCartQty(item.productId, -1)"
+              @click="changeCartQty(item.productId, -0.5)"
               :disabled="loading"
-              aria-label="Diminuer la quantité"
+              aria-label="Diminuer la quantité de 0,5"
             >−</button>
-            <strong>{{ item.qty }}</strong>
+
+            <strong>{{ formatQuantity(item.qty) }}</strong>
+
             <button
-              @click="changeCartQty(item.productId, 1)"
+              @click="changeCartQty(item.productId, 0.5)"
               :disabled="loading"
-              aria-label="Augmenter la quantité"
+              aria-label="Augmenter la quantité de 0,5"
             >＋</button>
           </div>
 
@@ -190,7 +197,7 @@
       <div class="cart-footer">
         <div>
           <span>Quantité totale</span>
-          <strong>{{ cartTotalQty }} casier(s)</strong>
+          <strong>{{ formatQuantity(cartTotalQty) }} casier(s)</strong>
         </div>
 
         <button
@@ -296,7 +303,7 @@
 
               <td>
                 <strong class="quantity-cell">
-                  {{ getEntryTotalQty(entry) }} casier(s)
+                  {{ formatQuantity(getEntryTotalQty(entry)) }} casier(s)
                 </strong>
               </td>
 
@@ -399,7 +406,7 @@
               <span>{{ formatMoney(item.price || 0) }} FCFA / casier</span>
             </div>
             <div class="detail-qty">
-              +{{ item.qty }}
+              +{{ formatQuantity(item.qty) }}
               <small>casiers</small>
             </div>
           </div>
@@ -407,7 +414,9 @@
 
         <div class="modal-total">
           <span>Quantité totale réceptionnée</span>
-          <strong>{{ getEntryTotalQty(modalEntry) }} casier(s)</strong>
+          <strong>
+            {{ formatQuantity(getEntryTotalQty(modalEntry)) }} casier(s)
+          </strong>
         </div>
 
         <button class="btn btn-primary modal-done" @click="closeModal">
@@ -417,6 +426,8 @@
     </div>
   </main>
 </template>
+
+
 
 <script>
 import Navbar from "../components/NavbarPage.vue";
@@ -480,14 +491,21 @@ export default {
     },
 
     totalUnits() {
-      return this.entries.reduce(
-        (total, entry) => total + this.getEntryTotalQty(entry),
-        0
+      return this.normalizeQuantity(
+        this.entries.reduce(
+          (total, entry) => total + this.getEntryTotalQty(entry),
+          0
+        )
       );
     },
 
     cartTotalQty() {
-      return this.cart.reduce((total, item) => total + item.qty, 0);
+      return this.normalizeQuantity(
+        this.cart.reduce(
+          (total, item) => total + Number(item.qty || 0),
+          0
+        )
+      );
     },
 
     filteredEntries() {
@@ -538,6 +556,41 @@ export default {
   },
 
   methods: {
+    // Normalisation des nombres pour éviter les erreurs de flottants.
+    normalizeQuantity(value) {
+      const number = Number(value);
+
+      if (!Number.isFinite(number)) return 0;
+
+      return Number(number.toFixed(6));
+    },
+
+    // Formatage français des quantités décimales.
+    formatQuantity(value) {
+      const number = Number(value);
+
+      if (!Number.isFinite(number)) return "0";
+
+      return this.normalizeQuantity(number).toLocaleString("fr-FR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 6
+      });
+    },
+
+    isValidQuantity(value) {
+      if (
+        value === "" ||
+        value === null ||
+        value === undefined
+      ) {
+        return false;
+      }
+
+      const number = Number(value);
+
+      return Number.isFinite(number) && number > 0;
+    },
+
     async load() {
       this.pageLoading = true;
 
@@ -557,11 +610,16 @@ export default {
             id: d.id,
             ...d.data()
           }))
-          .sort((a, b) => this.getDateValue(b.date) - this.getDateValue(a.date));
+          .sort(
+            (a, b) => this.getDateValue(b.date) - this.getDateValue(a.date)
+          );
 
       } catch (error) {
         console.error("Erreur de chargement :", error);
-        alert("Impossible de charger les données. Vérifiez votre connexion.");
+
+        alert(
+          "Impossible de charger les données. Vérifiez votre connexion."
+        );
       } finally {
         this.pageLoading = false;
       }
@@ -569,11 +627,21 @@ export default {
 
     getDateValue(date) {
       if (!date) return 0;
-      if (typeof date.toMillis === "function") return date.toMillis();
-      if (date instanceof Date) return date.getTime();
-      if (typeof date === "number") return date;
+
+      if (typeof date.toMillis === "function") {
+        return date.toMillis();
+      }
+
+      if (date instanceof Date) {
+        return date.getTime();
+      }
+
+      if (typeof date === "number") {
+        return date;
+      }
 
       const parsed = new Date(date).getTime();
+
       return Number.isNaN(parsed) ? 0 : parsed;
     },
 
@@ -598,6 +666,7 @@ export default {
 
     isToday(date) {
       const value = this.getDateValue(date);
+
       if (!value) return false;
 
       const d = new Date(value);
@@ -611,19 +680,38 @@ export default {
     },
 
     formatMoney(value) {
-      return Number(value || 0).toLocaleString("fr-FR");
+      const number = Number(value || 0);
+
+      return (Number.isFinite(number) ? number : 0)
+        .toLocaleString("fr-FR");
     },
 
     getProductStock(product) {
-      const value = Number(product?.stocks?.[this.depotId] || 0);
-      return Number.isFinite(value) ? value : 0;
+      const value = Number(
+        product?.stocks?.[this.depotId] ?? 0
+      );
+
+      return Number.isFinite(value)
+        ? this.normalizeQuantity(value)
+        : 0;
     },
 
     getEntryTotalQty(entry) {
-      return (entry.items || []).reduce(
-        (total, item) => total + Math.max(0, Number(item.qty) || 0),
-        0
-      );
+      const items = Array.isArray(entry?.items)
+        ? entry.items
+        : [];
+
+      const total = items.reduce((sum, item) => {
+        const quantity = Number(item.qty);
+
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          return sum;
+        }
+
+        return sum + quantity;
+      }, 0);
+
+      return this.normalizeQuantity(total);
     },
 
     getInitials(name) {
@@ -635,17 +723,24 @@ export default {
         .join("");
     },
 
+    // Ajouter un produit au panier.
     addToCart() {
       const product = this.selectedProduct;
-      const quantity = Number(this.qty);
 
       if (!product) {
         alert("Veuillez sélectionner un produit.");
         return;
       }
 
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        alert("Veuillez saisir une quantité entière supérieure à zéro.");
+      if (!this.isValidQuantity(this.qty)) {
+        alert("Veuillez saisir une quantité supérieure à zéro.");
+        return;
+      }
+
+      const quantity = this.normalizeQuantity(this.qty);
+
+      if (quantity <= 0) {
+        alert("La quantité saisie est invalide.");
         return;
       }
 
@@ -654,7 +749,9 @@ export default {
       );
 
       if (existing) {
-        existing.qty += quantity;
+        existing.qty = this.normalizeQuantity(
+          existing.qty + quantity
+        );
       } else {
         this.cart.push({
           productId: product.id,
@@ -668,11 +765,19 @@ export default {
       this.productId = "";
     },
 
+    // Modifier la quantité par pas de 0,5.
     changeCartQty(productId, amount) {
-      const item = this.cart.find(i => i.productId === productId);
+      if (this.loading) return;
+
+      const item = this.cart.find(
+        i => i.productId === productId
+      );
+
       if (!item) return;
 
-      const nextQty = item.qty + amount;
+      const nextQty = this.normalizeQuantity(
+        item.qty + amount
+      );
 
       if (nextQty <= 0) {
         this.removeFromCart(productId);
@@ -683,11 +788,14 @@ export default {
     },
 
     removeFromCart(productId) {
+      if (this.loading) return;
+
       this.cart = this.cart.filter(
         item => item.productId !== productId
       );
     },
 
+    // Enregistrer une entrée et mettre à jour les stocks.
     async saveEntry() {
       if (this.loading) return;
 
@@ -696,32 +804,40 @@ export default {
         return;
       }
 
-      // Vérification avant enregistrement
-      const invalidItem = this.cart.find(
-        item => !Number.isInteger(item.qty) || item.qty <= 0
-      );
+      const invalidItem = this.cart.find(item => {
+        return !this.isValidQuantity(item.qty);
+      });
 
       if (invalidItem) {
-        alert("Une quantité du panier est invalide.");
+        alert(
+          `La quantité du produit "${invalidItem.name}" est invalide.`
+        );
         return;
       }
 
       this.loading = true;
 
       try {
-        const itemsToSave = this.cart.map(item => ({ ...item }));
+        const itemsToSave = this.cart.map(item => ({
+          ...item,
+          qty: this.normalizeQuantity(item.qty),
+          price: Number(item.price) || 0
+        }));
+
         const entryRef = doc(collection(db, "entries"));
+
         const seller =
           this.currentUser?.name ||
           this.currentUser?.username ||
           "Inconnu";
 
         await runTransaction(db, async transaction => {
-          // Toutes les lectures doivent précéder les écritures.
+          // Préparer les références des produits.
           const productRefs = itemsToSave.map(item =>
             doc(db, "products", item.productId)
           );
 
+          // Lire tous les produits avant les écritures.
           const snapshots = await Promise.all(
             productRefs.map(ref => transaction.get(ref))
           );
@@ -734,27 +850,34 @@ export default {
             }
           });
 
-          // Mise à jour des stocks
+          // Mise à jour des stocks.
           snapshots.forEach((snapshot, index) => {
             const item = itemsToSave[index];
             const productData = snapshot.data();
 
             const currentStock = Number(
-              productData.stocks?.[this.depotId] || 0
+              productData.stocks?.[this.depotId] ?? 0
             );
 
-            if (!Number.isFinite(currentStock) || currentStock < 0) {
+            if (
+              !Number.isFinite(currentStock) ||
+              currentStock < 0
+            ) {
               throw new Error(
                 `Le stock actuel de "${item.name}" est invalide.`
               );
             }
 
+            const newStock = this.normalizeQuantity(
+              currentStock + item.qty
+            );
+
             transaction.update(productRefs[index], {
-              [`stocks.${this.depotId}`]: currentStock + item.qty
+              [`stocks.${this.depotId}`]: newStock
             });
           });
 
-          // Création de l'historique dans la même transaction
+          // Enregistrer l'historique dans la même transaction.
           transaction.set(entryRef, {
             depotId: this.depotId,
             items: itemsToSave,
@@ -773,6 +896,7 @@ export default {
 
       } catch (error) {
         console.error("Erreur d'enregistrement :", error);
+
         alert(
           error.message ||
           "Une erreur est survenue pendant l'enregistrement de l'entrée."
@@ -782,13 +906,16 @@ export default {
       }
     },
 
+    // Supprimer une entrée et retirer ses quantités du stock.
     async deleteEntry(entry) {
       if (this.currentUser?.role !== "Administrateur") {
-        alert("Vous n'avez pas l'autorisation de supprimer cette entrée.");
+        alert(
+          "Vous n'avez pas l'autorisation de supprimer cette entrée."
+        );
         return;
       }
 
-      if (this.deletingId) return;
+      if (this.deletingId || this.loading) return;
 
       const confirmed = confirm(
         `Voulez-vous vraiment supprimer cette entrée du ${this.formatDate(entry.date)} ?\n\nLes quantités seront retirées du stock.`
@@ -802,7 +929,7 @@ export default {
         const entryRef = doc(db, "entries", entry.id);
 
         await runTransaction(db, async transaction => {
-          // Relire l'entrée pour éviter de travailler sur une ancienne version.
+          // Relire l'entrée pour travailler sur les données réelles.
           const entrySnapshot = await transaction.get(entryRef);
 
           if (!entrySnapshot.exists()) {
@@ -812,53 +939,62 @@ export default {
           const freshEntry = entrySnapshot.data();
           const depotId = freshEntry.depotId || this.depotId;
 
-          // Regrouper les quantités par produit, y compris les anciennes entrées.
+          // Regrouper les quantités par produit.
           const quantities = new Map();
 
           for (const item of freshEntry.items || []) {
             const id = item.productId;
             const quantity = Number(item.qty);
 
-            if (!id || !Number.isInteger(quantity) || quantity <= 0) {
+            if (
+              !id ||
+              !Number.isFinite(quantity) ||
+              quantity <= 0
+            ) {
               throw new Error(
                 "Cette entrée contient une quantité ou un produit invalide."
               );
             }
 
+            const previousQuantity = quantities.get(id) || 0;
+
             quantities.set(
               id,
-              (quantities.get(id) || 0) + quantity
+              this.normalizeQuantity(previousQuantity + quantity)
             );
           }
 
           const productIds = [...quantities.keys()];
+
           const productRefs = productIds.map(id =>
             doc(db, "products", id)
           );
 
-          // Lire tous les produits avant de commencer les écritures.
+          // Lire tous les produits avant les écritures.
           const productSnapshots = await Promise.all(
             productRefs.map(ref => transaction.get(ref))
           );
 
+          // Vérifier les stocks avant toute modification.
           productSnapshots.forEach((snapshot, index) => {
             const productId = productIds[index];
 
             if (!snapshot.exists()) {
               throw new Error(
-                `Impossible de supprimer cette entrée : un produit (${productId}) n'existe plus.`
+                `Impossible de supprimer cette entrée : le produit ${productId} n'existe plus.`
               );
             }
 
             const currentStock = Number(
-              snapshot.data().stocks?.[depotId] || 0
+              snapshot.data().stocks?.[depotId] ?? 0
             );
 
             const quantityToRemove = quantities.get(productId);
 
             if (
               !Number.isFinite(currentStock) ||
-              currentStock < quantityToRemove
+              currentStock < 0 ||
+              currentStock + 0.000001 < quantityToRemove
             ) {
               throw new Error(
                 `Stock insuffisant pour annuler l'entrée du produit "${snapshot.data().name || productId}". Suppression annulée.`
@@ -866,19 +1002,26 @@ export default {
             }
           });
 
-          // Toutes les vérifications sont faites : on peut écrire.
+          // Retirer les quantités avec précision décimale.
           productSnapshots.forEach((snapshot, index) => {
             const productId = productIds[index];
+
             const currentStock = Number(
-              snapshot.data().stocks?.[depotId] || 0
+              snapshot.data().stocks?.[depotId] ?? 0
+            );
+
+            const quantityToRemove = quantities.get(productId);
+
+            const newStock = this.normalizeQuantity(
+              currentStock - quantityToRemove
             );
 
             transaction.update(productRefs[index], {
-              [`stocks.${depotId}`]:
-                currentStock - quantities.get(productId)
+              [`stocks.${depotId}`]: Math.max(0, newStock)
             });
           });
 
+          // Supprimer l'entrée après les vérifications.
           transaction.delete(entryRef);
         });
 
@@ -892,6 +1035,7 @@ export default {
 
       } catch (error) {
         console.error("Erreur de suppression :", error);
+
         alert(
           error.message ||
           "Impossible de supprimer cette entrée."
@@ -938,6 +1082,8 @@ export default {
 };
 </script>
 
+
+
 <style scoped>
 .page {
   margin-left: 250px;
@@ -946,6 +1092,14 @@ export default {
   background: #f5f7fb;
   color: #172033;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.input-hint {
+  display: block;
+  margin-top: 6px;
+  color: #8490a3;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 /* HEADER */
